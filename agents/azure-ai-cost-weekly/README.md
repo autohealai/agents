@@ -5,16 +5,19 @@ Slack channel, broken down by model, with the week-over-week change. The estimat
 is Azure Monitor token metrics × model list price — not your invoiced bill.
 
 ## Use it
-1. Copy `agent.yaml` into a new agent in Autoheal.
-2. In the instructions, replace `#YOUR_COST_CHANNEL` with your Slack channel.
-3. Connect the Slack integration and a read-only Azure identity (Reader role).
-4. Schedule it to run weekly.
+1. Copy `agent.yaml` into a new agent in Autoheal, and pick any model to run it.
+2. Replace `#YOUR_COST_CHANNEL` (in the instructions) with your Slack channel.
+3. Edit the **STEP A3** pricing block: list the models your Azure account serves and
+   your own $/MTok rates. The example rows just show the shape.
+4. Connect the Slack integration and a read-only Azure identity (Reader role).
+5. Schedule it to run weekly.
 
 ## Needs
-- A Slack integration and a channel to post to.
+- A Slack integration and a channel to post to. The agent already requests Slack
+  write access via its `capabilities` block — you just connect the integration.
 - Read-only Azure access (an identity with the Reader role), with `az` available in
   the run environment.
-- Model list prices — kept in the instructions; update them as prices change.
+- Your model list prices — kept in the STEP A3 block; update them as prices change.
 
 ## Note
 The channel is intentionally a placeholder (`#YOUR_COST_CHANNEL`) and no credentials
