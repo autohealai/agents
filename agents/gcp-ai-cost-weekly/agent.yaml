@@ -1,0 +1,121 @@
+schema_version: 1
+name: gcp-ai-cost-weekly
+display_name: GCP AI Cost Weekly
+description: Posts a weekly estimate of GCP Vertex AI LLM spend to a Slack channel, broken down by model, with week-over-week change.
+instructions: |
+  You post a weekly GCP Vertex AI (LLM) cost ESTIMATE to your cost-reporting Slack
+  channel. Run FULLY AUTONOMOUSLY — never ask the user anything. This is a STANDALONE
+  GCP report — post only the GCP block(s).
+
+  Post everything to the Slack channel #YOUR_COST_CHANNEL — replace this with your own
+  channel, and connect the Slack integration before running.
+
+  This is an ESTIMATE (Vertex online-serving token metrics × model list price), NOT
+  invoiced dollars. Assume read-only GCP access is already configured: a service
+  account with roles/monitoring.viewer on every project you report on. Do NOT attempt
+  `gcloud billing`, `bq`, or `gcloud services list` (that role can't run them; they
+  PERMISSION_DENIED and waste turns). Use Cloud Monitoring metrics only.
+
+  HOW AUTH WORKS HERE (read carefully): any command that invokes `gcloud` gets a
+  freshly-minted, short-lived SA access token injected as the env var
+  $GCP_ACCESS_TOKEN (and $CLOUDSDK_CORE_PROJECT). Use $GCP_ACCESS_TOKEN directly.
+  Do NOT use `gcloud auth print-access-token` — it reads gcloud's own credential
+  store, which is empty here and returns nothing. Two constraints follow:
+    (1) $GCP_ACCESS_TOKEN is only injected on a command that invokes `gcloud`, and
+    (2) a shell variable does NOT persist across separate commands.
+  So you MUST read the token and run ALL Monitoring queries together in ONE bash
+  command (the single block in STEP G2). Do not split them.
+
+  STEP G1 — find the gcloud configuration name (one per GCP integration; NOT
+  "default"):
+    gcloud config configurations list --format='value(name)'
+    Use the single non-"default" name as CFG in G2. If the ONLY entry is "default"
+    (no integration config exists), post "GCP Vertex: token unavailable, skipping this
+    week" to #YOUR_COST_CHANNEL and STOP.
+
+  STEP G2 — mint the token and pull token_count for EACH project × BOTH windows, in
+  ONE bash command. token_count is a DELTA metric; ALIGN_SUM over the window +
+  REDUCE_SUM across series gives total tokens per (model, type). Assign S/E directly
+  per label — do NOT pack timestamps into a colon-delimited string and split on ":",
+  RFC 3339 timestamps contain colons themselves so any colon-based split truncates them:
+
+    # >>> EDIT: list the GCP project IDs you want to report on (space-separated). <<<
+    PROJECTS="your-project-a your-project-b"
+    CFG="<name from G1>"
+    # Touch gcloud once so the sandbox injects $GCP_ACCESS_TOKEN, then read it.
+    gcloud --configuration="$CFG" config list >/dev/null 2>&1 || true
+    TOKEN="${GCP_ACCESS_TOKEN:-}"
+    if [ -z "$TOKEN" ]; then echo "TOKEN_UNAVAILABLE"; exit 0; fi
+    TW_START=$(date -u -d '-7 days'  +%Y-%m-%dT00:00:00Z)
+    TW_END=$(date   -u               +%Y-%m-%dT00:00:00Z)
+    LW_START=$(date -u -d '-14 days' +%Y-%m-%dT00:00:00Z)
+    for PROJ in $PROJECTS; do
+      for LABEL in this_week last_week; do
+        if [ "$LABEL" = "this_week" ]; then S="$TW_START"; E="$TW_END"; else S="$LW_START"; E="$TW_START"; fi
+        echo "=== $PROJ $LABEL ==="
+        curl -s -G "https://monitoring.googleapis.com/v3/projects/$PROJ/timeSeries" \
+          -H "Authorization: Bearer $TOKEN" \
+          --data-urlencode 'filter=metric.type="aiplatform.googleapis.com/publisher/online_serving/token_count"' \
+          --data-urlencode "interval.startTime=$S" \
+          --data-urlencode "interval.endTime=$E" \
+          --data-urlencode "aggregation.alignmentPeriod=604800s" \
+          --data-urlencode "aggregation.perSeriesAligner=ALIGN_SUM" \
+          --data-urlencode "aggregation.crossSeriesReducer=REDUCE_SUM" \
+          --data-urlencode "aggregation.groupByFields=resource.labels.model_user_id" \
+          --data-urlencode "aggregation.groupByFields=metric.labels.type"
+        echo
+      done
+    done
+
+    Guards (NEVER post $0.00 as if it were real spend):
+    - If the block printed "TOKEN_UNAVAILABLE" → post "GCP Vertex: token unavailable,
+      skipping this week" to #YOUR_COST_CHANNEL and STOP.
+    - Handle each project INDEPENDENTLY. If a project's window has an "error" object
+      (e.g. PERMISSION_DENIED before an IAM grant lands), is not valid JSON, or has no
+      "timeSeries" array → SKIP only that project (do not fail the whole run) and still
+      post the project(s) that succeeded. If EVERY project fails → post "GCP Vertex:
+      monitoring query failed, skipping this week" and STOP.
+
+    For each series: model = resource.labels.model_user_id,
+    type = metric.labels.type, tokens = sum of points[].value.int64Value
+    (or doubleValue) for that series.
+
+  STEP G3 — price each (model, type) bucket. cost = tokens / 1e6 × rate ($/MTok).
+    >>> EDIT THIS BLOCK — it is the ONLY pricing part specific to your deployment. <<<
+    List the models YOUR projects serve and YOUR $/MTok rates (Vertex list price;
+    confirm against your contract, region, and context tier). Match by model name
+    prefix, case-insensitive. The rows below are EXAMPLES of the shape — replace them:
+      claude-opus*   : input 5,    output 25
+      claude-sonnet* : input 3,    output 15
+      claude-haiku*  : input 1,    output 5
+      gemini*        : input 2.00, output 12.00
+    token-type → rate multiplier on that model's rates:
+      input                → input
+      output               → output
+      cache_read_input     → 0.10 × input
+      cache_write_input    → 1.25 × input   (5-min write)
+      cache_write_1h_input → 2.00 × input   (1-hour write)
+      (any other cache_*)  → input
+    >>> END EDIT BLOCK <<<
+    FALLBACK so nothing is missed: if a model name matches no row above, price its
+    input/output at the HIGHEST rates in your table and SHOW the model name in the post
+    so the gap is obvious and you can add it next week.
+
+  STEP G4 — sum per model and a grand total per PROJECT for each window. WoW =
+    (this_week − last_week) / last_week × 100. If last_week < $1 use "🆕 new"
+    instead of a percentage.
+
+  STEP G5 — POST to your Slack channel #YOUR_COST_CHANNEL. This IS the job; post it
+  yourself, do NOT ask for confirmation. Send ONE standalone plain-text (mrkdwn)
+  message PER PROJECT — NOT a code block. Text arrows ▲/▼, models sorted high→low,
+  drop $0.00 line items. Skip a project's message if it was skipped in G2. Post EXACTLY:
+
+  *GCP Vertex* (<project>) — *$<this_week_total>*  <▲/▼> <±P.P>% WoW  _(estimate: Vertex online-serving tokens × list price; excl. batch/provisioned-throughput)_
+     • <model> — $<amt>
+  _Updated <YYYY-MM-DD HH:MM> UTC_
+capabilities:
+  # gcloud / curl run in the sandbox automatically — no capability needed for those.
+  - ToolsCapability:
+      rules:
+        - { integration_type: slack, operation_type: write }   # lets the agent POST the report
+        - { operation_type: read }

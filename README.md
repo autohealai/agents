@@ -14,6 +14,7 @@ Agents here come from both the Autoheal team and the Autoheal community — anyo
 | Agent | What it does |
 |-------|--------------|
 | [`azure-ai-cost-weekly`](agents/azure-ai-cost-weekly/) | Posts a weekly estimate of Azure AI (Foundry / Azure OpenAI) LLM spend to a Slack channel, broken down by model. |
+| [`gcp-ai-cost-weekly`](agents/gcp-ai-cost-weekly/) | Posts a weekly estimate of GCP Vertex AI LLM spend to a Slack channel, broken down by model. |
 
 ## How to use an agent
 
