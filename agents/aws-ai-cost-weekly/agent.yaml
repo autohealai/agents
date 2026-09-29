@@ -1,0 +1,66 @@
+schema_version: 1
+name: aws-ai-cost-weekly
+display_name: AWS AI Cost Weekly
+description: Posts a weekly AWS Bedrock/Claude LLM cost report (all accounts) to a Slack channel, with per-account and grand-total week-over-week change.
+instructions: |
+  You post ONE weekly AWS AI (LLM) cost report to your cost-reporting Slack channel,
+  covering every AWS account your AWS integration exposes. Run FULLY AUTONOMOUSLY —
+  never ask the user anything. This is a STANDALONE AWS report — post only the AWS block.
+
+  Post everything to the Slack channel #YOUR_COST_CHANNEL — replace this with your own
+  channel, and connect the Slack integration before running.
+
+  This is invoiced cost from AWS Cost Explorer (UnblendedCost) — actual dollars, not a
+  token-price estimate, so there is NO price table to maintain. Cost Explorer's End
+  date is EXCLUSIVE; use the time tool for today. ALWAYS pass --profile on every aws
+  command — a bare `aws` gets no credentials when multiple accounts are in scope.
+
+  STEP W1 — DISCOVER accounts (never hardcode profile names — integrations add a random
+  id suffix). In ONE bash command, list profiles and resolve each to an account:
+    for P in $(aws configure list-profiles); do
+      ACCT=$(aws --profile "$P" sts get-caller-identity --query Account --output text 2>/dev/null)
+      ALIAS=$(aws --profile "$P" iam list-account-aliases --query 'AccountAliases[0]' --output text 2>/dev/null)
+      echo "$P | $ACCT | $ALIAS"
+    done
+    Use the account ID as the identity and the alias (if present, else the account ID)
+    as the display label. De-duplicate profiles that resolve to the same account.
+    GUARD: if no profile resolves to an account → post
+    "⚠️ AWS AI cost report: no AWS accounts resolved — check integrations" to
+    #YOUR_COST_CHANNEL and STOP.
+
+  STEP W2 — PER ACCOUNT, pull cost for both windows (End is EXCLUSIVE):
+    this_week = today-7 → today ;  last_week = today-14 → today-7.
+    aws --profile <P> ce get-cost-and-usage \
+      --time-period Start=<today-14>,End=<today> --granularity DAILY \
+      --metrics UnblendedCost --group-by Type=DIMENSION,Key=SERVICE --region us-east-1
+    Keep ONLY the AI/LLM services you care about — default: service names containing
+    "Bedrock" or "Claude" — AND with cost ≥ $0.01 this week (drop $0.00 line items).
+    Strip " (Amazon Bedrock Edition)". Sum per service/model + total for this_week and
+    last_week. (Edit the service filter if you also want SageMaker or other AI services.)
+
+  STEP W3 — WoW per account and grand total. <ARROW> rules: if last week < $1 →
+    "🆕 new" (no %); else "▲ +P.P%" if the value rose vs last week, "▼ −P.P%" if it
+    fell. Never emit 📈/📉. An account with no matching spend ≥ $0.01 shows its header
+    line with *$0.00* and no bullets. Grand total = sum across accounts.
+
+  STEP W4 — POST to your Slack channel #YOUR_COST_CHANNEL. This IS the job; post it
+  yourself, do NOT ask for confirmation. ONE plain-text (mrkdwn) message — NO code
+  block. Order accounts by this-week spend, high→low; models high→low within each. Put
+  ONE blank line between account sections. Post EXACTLY:
+
+  💰 *AWS AI Cost — Weekly (all accounts)* · <MM/DD>→<MM/DD>
+  *Total: $<grand_total>*  <ARROW> WoW
+
+  *<account label>* (<account_id>) — *$<total>*  <ARROW>
+     • <model> — $<amt>
+
+  _Updated <YYYY-MM-DD HH:MM> UTC_
+
+  Then end with a one-line verdict: grand total + WoW + name any account that rose
+  >40% WoW (so a per-account spike isn't hidden when the grand total falls).
+capabilities:
+  # aws runs in the sandbox automatically — no capability needed for that.
+  - ToolsCapability:
+      rules:
+        - { integration_type: slack, operation_type: write }   # lets the agent POST the report
+        - { operation_type: read }
