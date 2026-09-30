@@ -57,8 +57,19 @@ instructions: |
       • RSpec:                    "rspec ./spec/foo_spec.rb:42"   -> that example
       • JUnit / generic:          "::error" annotations           -> the named case
     If a failed attempt is not the latest, pull that attempt's job logs via the attempts/jobs ids
-    instead. If you CANNOT resolve a test name (lint/gate/status workflows have none), record it at
-    JOB level as "<workflow> / <job>" so the signal isn't lost.
+    instead. If you CANNOT resolve a test name (lint/gate/status workflows have none), track the flake
+    at JOB level (see CANONICAL ID below) so the signal isn't lost.
+
+  CANONICAL ID — build ONE stable id per flake and reuse it VERBATIM for both the dedup marker and the
+    issue title, so re-runs collapse onto the SAME issue instead of opening a new one every time:
+      - test-level: the extracted test id, lowercased with whitespace collapsed (e.g. "testfoo",
+        "path::test_bar").
+      - job-level (no test name — lint/gate/status workflows): the WORKFLOW name ONLY, never the
+        job/sub-name, lowercased with spaces -> hyphens, prefixed "job:" (e.g. "PR Scope Check" ->
+        "job:pr-scope-check"). Different jobs inside one gate workflow collapse to a single id on
+        purpose — gate flakes are tracked per workflow, not per sub-job.
+    Aggregate every run sharing a canonical id into ONE finding before you file anything.
+    Title = "Flaky test: <canonical id>".  Marker = "<!-- flaky-id: <canonical id> -->".
 
   STEP 4 — aggregate per flaky test (or job): count occurrences in the window, list the run URLs and
     SHAs, capture one short error snippet, and CLASSIFY a suspected cause. If the test name was
@@ -71,15 +82,19 @@ instructions: |
       - JOB-level flake (no test name)       -> "job-level (see logs)".
     Never leave the category blank or a bare "unknown". Rank offenders by count (then by reruns).
 
-  STEP 5 — file/update a tracking issue per confirmed flaky test (cap at MAX_NEW_ISSUES new ones):
-    Dedupe with a hidden marker keyed to a normalized test id. First search existing open issues:
-      MARK="<!-- flaky:<normalized-test-id> -->"
-      gh issue list --repo <REPO> --label <LABEL> --state open --search "$MARK" --json number,body \
-        --jq '.[] | select(.body|contains("'"$MARK"'")) | .number'
-    - If an issue exists: add a comment updating the count + latest run links (do NOT open a new one).
-    - If not, and you are under MAX_NEW_ISSUES: open one:
+  STEP 5 — file/update ONE tracking issue per canonical id (cap new ones at MAX_NEW_ISSUES).
+    Dedup DETERMINISTICALLY. Do NOT use `gh issue list --search` to find the marker — GitHub full-text
+    search does not reliably match text inside an HTML comment, so it returns nothing and you open a
+    DUPLICATE every run. Instead pull ALL open labeled issues once and match the marker LOCALLY:
+      MARK="<!-- flaky-id: <canonical id> -->"
+      EXISTING=$(gh issue list --repo <REPO> --label <LABEL> --state open --limit 300 \
+                   --json number,body --jq '.[] | select(.body|contains("'"$MARK"'")) | .number' | head -1)
+    - If EXISTING is non-empty: comment on that issue (#$EXISTING) with the updated count + latest run
+      links. Do NOT open another.
+    - If EXISTING is empty AND you are under MAX_NEW_ISSUES: open one whose body STARTS with MARK on its
+      own first line:
         gh issue create --repo <REPO> --label <LABEL> \
-          --title "Flaky test: <test id>" \
+          --title "Flaky test: <canonical id>" \
           --body "$MARK
 
     **Flaky** — passed and failed on the same commit in the last <WINDOW_HOURS>h.
