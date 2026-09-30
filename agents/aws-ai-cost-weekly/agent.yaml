@@ -58,6 +58,10 @@ instructions: |
 
   Then end with a one-line verdict: grand total + WoW + name any account that rose
   >40% WoW (so a per-account spike isn't hidden when the grand total falls).
+model: gpt-5-mini
+model_settings:
+  max_tokens: 32768
+  thinking: high
 capabilities:
   # aws runs in the sandbox automatically — no capability needed for that.
   - ToolsCapability:

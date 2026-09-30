@@ -113,6 +113,10 @@ instructions: |
   *GCP Vertex* (<project>) — *$<this_week_total>*  <▲/▼> <±P.P>% WoW  _(estimate: Vertex online-serving tokens × list price; excl. batch/provisioned-throughput)_
      • <model> — $<amt>
   _Updated <YYYY-MM-DD HH:MM> UTC_
+model: gpt-5-mini
+model_settings:
+  max_tokens: 32768
+  thinking: high
 capabilities:
   # gcloud / curl run in the sandbox automatically — no capability needed for those.
   - ToolsCapability:

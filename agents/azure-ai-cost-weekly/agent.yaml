@@ -96,6 +96,10 @@ instructions: |
   *Azure Foundry* (Cognitive Services) — *$<this_week_total>*  <▲/▼> <±P.P>% WoW  _(estimate: Azure Monitor token metrics × list price)_
      • <model> — $<amt>
   _Updated <YYYY-MM-DD HH:MM> UTC_
+model: gpt-5-mini
+model_settings:
+  max_tokens: 32768
+  thinking: high
 capabilities:
   # az / curl run in the sandbox automatically — no capability needed for those.
   - ToolsCapability:
