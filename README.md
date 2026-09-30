@@ -20,6 +20,7 @@ Agents here come from both the Autoheal team and the Autoheal community — anyo
 | [`pr-reviewer`](agents/pr-reviewer/) | Reviews every opened/updated pull request for correctness, security, and maintainability and posts one structured review comment — never edits, approves, or merges. |
 | [`flaky-test-detective`](agents/flaky-test-detective/) | Scans recent GitHub Actions CI on a schedule, catches flaky tests via same-commit pass/fail flips and rerun-recoveries, files a tracking issue per flake, and posts a Slack scoreboard — never disables a test or merges. |
 | [`flaky-test-weekly-rollup`](agents/flaky-test-weekly-rollup/) | Posts a weekly CI-reliability summary to Slack — flaky rate with week-over-week trend, CI time wasted on reruns, and flaky-backlog progress. Read-only trend companion to `flaky-test-detective`. |
+| [`smart-pr-reviewer`](agents/smart-pr-reviewer/) | Routes each PR to the right reviewers — scores change risk from a criticality map, picks owners from CODEOWNERS + recent file history, requests them, and comments why. Never edits, merges, or (by default) approves. |
 
 ## How to use an agent
 
