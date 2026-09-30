@@ -17,6 +17,7 @@ Agents here come from both the Autoheal team and the Autoheal community — anyo
 | [`gcp-ai-cost-weekly`](agents/gcp-ai-cost-weekly/) | Posts a weekly estimate of GCP Vertex AI LLM spend to a Slack channel, broken down by model. |
 | [`aws-ai-cost-weekly`](agents/aws-ai-cost-weekly/) | Posts a weekly AWS Bedrock/Claude LLM cost report (all accounts) to a Slack channel, with week-over-week change. |
 | [`vulnerability-remediator`](agents/vulnerability-remediator/) | Turns a container-image vulnerability worklist into reviewable PRs/issues (API-only, no checkout) — never merges, deploys, or rebuilds live images. |
+| [`pr-reviewer`](agents/pr-reviewer/) | Reviews every opened/updated pull request for correctness, security, and maintainability and posts one structured review comment — never edits, approves, or merges. |
 
 ## How to use an agent
 
