@@ -62,3 +62,5 @@ approved LLM out of the box. Swap it in the builder's Budget or edit the `model:
   level. Emitting standard test output (e.g. JUnit XML) improves per-test attribution.
 - **Governance.** If a policy gates every write on human approval, the issue/comment and the Slack
   post pause as "waiting for input" until approved.
+- **Pairs with** [`flaky-test-weekly-rollup`](../flaky-test-weekly-rollup/) — the read-only weekly
+  trend companion. Run this detective daily and the rollup weekly against the same repo and label.
