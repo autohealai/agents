@@ -2,8 +2,10 @@
 """Validate every agents/<name>/agent.yaml in the repo.
 
 Keeps the contribution bar low but the repo safe: valid YAML, required fields
-present, name well-formed, name matches its folder, and names unique. Exits
-non-zero on any problem so CI blocks the PR.
+present, name well-formed, name matches its folder, and names unique. The
+optional `metadata` block (which powers the catalog + gallery) is validated when
+present. Exits non-zero on any error so CI blocks the PR; warnings are printed
+but do not fail the build.
 """
 import re
 import sys
@@ -15,9 +17,86 @@ NAME_RE = re.compile(r"^[a-z0-9_-]+$")
 REQUIRED = ["schema_version", "name", "description", "instructions"]
 AGENTS_DIR = Path(__file__).resolve().parent.parent / "agents"
 
+# Closed sets — an invalid value is an error (it would break the gallery).
+CATEGORIES = {"sre", "security", "ci-cd", "cost", "code-review"}
+TRIGGERS = {"manual", "schedule"}
+# read-only = reads only; notify = posts messages/comments (Slack, PR/issue
+# comments), nothing structural; propose = opens PRs and/or issues for a human
+# to review (never merges, deploys, or force-pushes).
+SAFETY = {"read-only", "notify", "propose"}
+
+# Known integration type slugs (from the product's integrations store). This set
+# grows over time, so an unknown slug is a warning, not an error.
+KNOWN_INTEGRATIONS = {
+    "aws", "azure", "azuredevops", "bigquery", "bitbucket", "chronosphere",
+    "clickhouse", "cloudflare", "confluence", "coralogix", "custommcp",
+    "customsource", "databricks", "datadog", "drata", "dynatrace",
+    "elasticsearch", "featurebase", "fullstory", "gcp", "github", "gitlab",
+    "grafana", "honeycomb", "jenkins", "jira", "jsm", "launchdarkly", "mssql",
+    "neo4j", "notion", "opensearch", "pagerduty", "postgresql", "posthog",
+    "prometheus", "pumble", "pylon", "readmedocs", "recallai", "rivermuse",
+    "sentry", "slack", "temporal",
+}
+
+
+def validate_metadata(rel, meta, errors, warnings):
+    """Validate the optional metadata block. Missing is a warning; present-but-
+    invalid is an error for the closed enums, a warning for integration slugs."""
+    if not isinstance(meta, dict):
+        errors.append(f"{rel}: 'metadata' must be a mapping")
+        return
+
+    category = meta.get("category")
+    if category is None:
+        warnings.append(f"{rel}: metadata.category missing")
+    elif category not in CATEGORIES:
+        errors.append(
+            f"{rel}: metadata.category '{category}' must be one of "
+            f"{sorted(CATEGORIES)}"
+        )
+
+    summary = meta.get("summary")
+    if not summary:
+        warnings.append(f"{rel}: metadata.summary missing (card falls back to description)")
+    elif not isinstance(summary, str):
+        errors.append(f"{rel}: metadata.summary must be a string")
+
+    trigger = meta.get("trigger")
+    if trigger is None:
+        warnings.append(f"{rel}: metadata.trigger missing")
+    elif trigger not in TRIGGERS:
+        errors.append(
+            f"{rel}: metadata.trigger '{trigger}' must be one of {sorted(TRIGGERS)}"
+        )
+
+    safety = meta.get("safety")
+    if safety is None:
+        warnings.append(f"{rel}: metadata.safety missing")
+    elif safety not in SAFETY:
+        errors.append(
+            f"{rel}: metadata.safety '{safety}' must be one of {sorted(SAFETY)}"
+        )
+
+    requires = meta.get("requires")
+    if requires is not None:
+        if not isinstance(requires, dict):
+            errors.append(f"{rel}: metadata.requires must be a mapping")
+        else:
+            integrations = requires.get("integrations", [])
+            if not isinstance(integrations, list):
+                errors.append(f"{rel}: metadata.requires.integrations must be a list")
+            else:
+                for slug in integrations:
+                    if slug not in KNOWN_INTEGRATIONS:
+                        warnings.append(
+                            f"{rel}: metadata.requires.integrations has unknown "
+                            f"slug '{slug}' (typo, or a new integration?)"
+                        )
+
 
 def main() -> int:
     errors: list[str] = []
+    warnings: list[str] = []
     seen: dict[str, str] = {}
 
     specs = sorted(AGENTS_DIR.glob("*/agent.yaml"))
@@ -55,6 +134,20 @@ def main() -> int:
                 )
             else:
                 seen[name] = str(rel)
+
+        if "metadata" in doc:
+            validate_metadata(rel, doc["metadata"], errors, warnings)
+        else:
+            warnings.append(
+                f"{rel}: no 'metadata' block — recommended so the agent shows "
+                f"richly in the catalog/gallery"
+            )
+
+    if warnings:
+        print("Warnings (non-blocking):\n")
+        for warn in warnings:
+            print(f"  - {warn}")
+        print()
 
     if errors:
         print("Agent validation failed:\n")

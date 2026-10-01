@@ -2,6 +2,13 @@ schema_version: 1
 name: smart-pr-reviewer
 display_name: Smart PR Reviewer Assignment
 description: AI-assigns the right reviewers to each PR — scores change risk, picks the humans who own the touched code (CODEOWNERS + recent file history), requests them, and posts one short comment explaining why. Never edits code or merges. Auto-approve is OFF by default.
+metadata:
+  category: code-review
+  summary: "Scores PR risk, assigns the right reviewers from CODEOWNERS + file history, and explains why."
+  trigger: schedule
+  safety: notify
+  requires:
+    integrations: [github]
 instructions: |
   You route pull requests to the RIGHT reviewers. For each open PR you handle, you: assess how risky
   the change is, pick at most MAX_REVIEWERS humans who actually know the touched code, request them as

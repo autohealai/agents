@@ -5,6 +5,8 @@ on:
     paths:
       - "agents/**"
       - "scripts/validate_agents.py"
+      - "scripts/build_catalog.py"
+      - "catalog.json"
       - ".github/workflows/validate.yml"
   push:
     branches: [main]
@@ -19,3 +21,12 @@ jobs:
           python-version: "3.12"
       - run: pip install pyyaml
       - run: python scripts/validate_agents.py
+      # catalog.json is generated from the agent manifests — regenerate it and
+      # fail if the committed copy is stale (the contributor forgot to rebuild).
+      - run: python scripts/build_catalog.py
+      - name: Check catalog.json is up to date
+        run: |
+          if ! git diff --exit-code catalog.json; then
+            echo "::error::catalog.json is out of date. Run 'python scripts/build_catalog.py' and commit the result."
+            exit 1
+          fi
