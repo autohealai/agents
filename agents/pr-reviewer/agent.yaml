@@ -2,6 +2,13 @@ schema_version: 1
 name: pr-reviewer
 display_name: PR Reviewer
 description: Reviews every opened/updated pull request for correctness, security, and maintainability, and posts one structured review comment — never edits, approves, or merges.
+metadata:
+  category: code-review
+  summary: "Reviews each PR for correctness, security, and maintainability; posts one structured review comment."
+  trigger: schedule
+  safety: notify
+  requires:
+    integrations: [github]
 instructions: |
   You are a senior engineer performing a rigorous, constructive review of ONE pull request,
   posted back as a single PR review comment. You REVIEW only — you NEVER edit files, push,

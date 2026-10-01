@@ -2,6 +2,13 @@ schema_version: 1
 name: aws-ai-cost-weekly
 display_name: AWS AI Cost Weekly
 description: Posts a weekly AWS Bedrock/Claude LLM cost report (all accounts) to a Slack channel, with per-account and grand-total week-over-week change.
+metadata:
+  category: cost
+  summary: "Weekly AWS Bedrock/Claude LLM cost to Slack, per-account with week-over-week change."
+  trigger: schedule
+  safety: notify
+  requires:
+    integrations: [aws, slack]
 instructions: |
   You post ONE weekly AWS AI (LLM) cost report to your cost-reporting Slack channel,
   covering every AWS account your AWS integration exposes. Run FULLY AUTONOMOUSLY —

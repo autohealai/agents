@@ -37,7 +37,16 @@ agents/
   <agent-name>/
     agent.yaml     # the agent spec — copy this into the editor
     README.md      # what the agent does and what it needs
+catalog.json       # generated index of every agent (do not hand-edit)
+scripts/
+  validate_agents.py   # CI: validates every agent.yaml
+  build_catalog.py     # CI: regenerates catalog.json
 ```
+
+`catalog.json` is a machine-readable index of every agent (category, trigger,
+required integrations, and the full `agent.yaml` inline). It is generated from the
+agent manifests — run `python scripts/build_catalog.py` after changing an agent and
+commit the result. CI fails if it is out of date.
 
 ## Contributing
 

@@ -2,6 +2,13 @@ schema_version: 1
 name: gcp-ai-cost-weekly
 display_name: GCP AI Cost Weekly
 description: Posts a weekly estimate of GCP Vertex AI LLM spend to a Slack channel, broken down by model, with week-over-week change.
+metadata:
+  category: cost
+  summary: "Weekly GCP Vertex AI LLM spend to Slack, broken down by model."
+  trigger: schedule
+  safety: notify
+  requires:
+    integrations: [gcp, slack]
 instructions: |
   You post a weekly GCP Vertex AI (LLM) cost ESTIMATE to your cost-reporting Slack
   channel. Run FULLY AUTONOMOUSLY — never ask the user anything. This is a STANDALONE

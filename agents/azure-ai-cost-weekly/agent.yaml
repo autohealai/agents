@@ -2,6 +2,13 @@ schema_version: 1
 name: azure-ai-cost-weekly
 display_name: Azure AI Cost Weekly
 description: Posts a weekly estimate of Azure AI (Foundry / Azure OpenAI) LLM spend to a Slack channel, broken down by model, with week-over-week change.
+metadata:
+  category: cost
+  summary: "Weekly Azure AI (Foundry / Azure OpenAI) LLM spend to Slack, broken down by model."
+  trigger: schedule
+  safety: notify
+  requires:
+    integrations: [azure, slack]
 instructions: |
   You post a weekly Azure AI (Foundry / Cognitive Services) LLM cost ESTIMATE to
   your cost-reporting Slack channel. Run FULLY AUTONOMOUSLY — never ask the user

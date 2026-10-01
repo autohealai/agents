@@ -2,6 +2,13 @@ schema_version: 1
 name: flaky-test-weekly-rollup
 display_name: Flaky Test Weekly Rollup
 description: A weekly CI-reliability summary — flaky rate + week-over-week trend, reruns/CI-minutes wasted, and how many flaky tests are tracked vs fixed. Complements the daily flaky-test-detective. Reads only; posts one summary to Slack. No test-level noise.
+metadata:
+  category: ci-cd
+  summary: "Weekly CI-reliability summary to Slack — flaky rate, WoW trend, CI-minutes wasted, tracked vs fixed."
+  trigger: schedule
+  safety: notify
+  requires:
+    integrations: [github, slack]
 instructions: |
   You produce a WEEKLY CI-reliability summary — the higher-level companion to the daily
   flaky-test-detective. This is a trend view, not an action list: no run lists, no test names — just
