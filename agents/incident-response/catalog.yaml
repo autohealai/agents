@@ -1,0 +1,8 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: Incident Response
+category: sre
+summary: "Investigates an incident, has its root-cause conclusion adversarially verified, and reports the cause with evidence and mitigations."
+trigger: manual
+safety: read-only

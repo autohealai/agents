@@ -30,6 +30,23 @@ Add one agent per pull request.
      `slack`), not profile or account names. An unknown slug is a warning, not an
      error.
 4. Add a short `README.md`: what it does and what integrations it needs.
+
+### The `apiVersion` format
+
+An agent may instead be written as `apiVersion: agents.autoheal.ai/v1`, the format
+the agent editor now writes. The platform rejects any key that format does not
+define, so it differs from the steps above:
+
+- `agent.yaml` has `apiVersion: agents.autoheal.ai/v1`, `name` (equal to the folder
+  name), `description`, `model` and `instructions`, and no `schema_version`,
+  `display_name`, `metadata`, `capabilities` or `model_settings`.
+- The catalog fields go in `catalog.yaml` beside it: `display_name` plus the same
+  keys as the `metadata` block (`category`, `summary`, `trigger`, `safety`,
+  `requires`).
+- Private child agents go at `agents/<child>/agent.yaml` inside the agent's folder,
+  where the parent names them as `./agents:<child>`. Each is validated, and none
+  is listed in the catalog on its own. Say in the README that the user must create
+  them.
 5. Keep it generic. No secrets, no API keys, and no tenant- or company-specific
    IDs (Slack channel IDs, account numbers, internal hostnames). Use a clearly
    named placeholder (e.g. `#YOUR_COST_CHANNEL`) and document it in the README.

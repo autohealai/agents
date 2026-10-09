@@ -27,7 +27,13 @@ def build_record(spec: Path) -> dict:
     name = spec.parent.name
     text = spec.read_text()
     doc = yaml.safe_load(text)
-    meta = doc.get("metadata") or {}
+    # An apiVersion document keeps its catalog fields in catalog.yaml beside it:
+    # the platform rejects any key it does not define.
+    catalog = spec.parent / "catalog.yaml"
+    if "apiVersion" in doc and catalog.exists():
+        meta = yaml.safe_load(catalog.read_text()) or {}
+    else:
+        meta = doc.get("metadata") or {}
     requires = meta.get("requires") or {}
 
     readme = spec.parent / "README.md"
@@ -35,7 +41,7 @@ def build_record(spec: Path) -> dict:
 
     return {
         "name": name,
-        "display_name": doc.get("display_name") or name,
+        "display_name": meta.get("display_name") or doc.get("display_name") or name,
         # Prefer the short card summary; fall back to the full description.
         "summary": meta.get("summary") or doc.get("description") or "",
         "description": doc.get("description") or "",
