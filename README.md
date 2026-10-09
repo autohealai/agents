@@ -22,13 +22,18 @@ Agents here come from both the Autoheal team and the Autoheal community — anyo
 | [`flaky-test-detective`](agents/flaky-test-detective/) | Scans recent GitHub Actions CI on a schedule, catches flaky tests via same-commit pass/fail flips and rerun-recoveries, files a tracking issue per flake, and posts a Slack scoreboard — never disables a test or merges. |
 | [`flaky-test-weekly-rollup`](agents/flaky-test-weekly-rollup/) | Posts a weekly CI-reliability summary to Slack — flaky rate with week-over-week trend, CI time wasted on reruns, and flaky-backlog progress. Read-only trend companion to `flaky-test-detective`. |
 | [`smart-pr-reviewer`](agents/smart-pr-reviewer/) | Routes each PR to the right reviewers — scores change risk from a criticality map, picks owners from CODEOWNERS + recent file history, requests them, and comments why. Never edits, merges, or (by default) approves. |
+| [`incident-response`](agents/incident-response/) | Investigates a production incident end to end: gathers evidence, commits to one root-cause conclusion, has a private verifier agent try to disprove it, and reports the cause with evidence and proposed mitigations. Read-only. |
 
 ## How to use an agent
 
 1. Open the agent's folder and its `agent.yaml`.
 2. Copy the file contents.
 3. In Autoheal, create a new agent and paste the YAML into the editor.
-4. Replace any placeholders (e.g. the Slack channel), connect the integrations the
+4. If the folder has an `agents/` directory, the agent has private child agents.
+   Create each one in the agent's file tree at the same path (for example
+   `agents/incident-verifier/agent.yaml`) and paste its file in. The agent's
+   README says so too.
+5. Replace any placeholders (e.g. the Slack channel), connect the integrations the
    agent references, then save and run.
 
 ## Repo layout
@@ -38,6 +43,9 @@ agents/
   <agent-name>/
     agent.yaml     # the agent spec — copy this into the editor
     README.md      # what the agent does and what it needs
+    catalog.yaml   # apiVersion agents only: catalog fields (not part of the agent)
+    agents/        # apiVersion agents only: private child agents, if any
+      <child>/agent.yaml
 catalog.json       # generated index of every agent (do not hand-edit)
 scripts/
   validate_agents.py   # CI: validates every agent.yaml
