@@ -32,7 +32,8 @@ Agents here come from both the Autoheal team and the Autoheal community — anyo
 4. If the folder has an `agents/` directory, the agent has private child agents.
    Create each one in the agent's file tree at the same path (for example
    `agents/incident-verifier/agent.yaml`) and paste its file in. The agent's
-   README says so too.
+   README says so too. Do the same for an `evals/` directory: those files score
+   the agent's conversations.
 5. Replace any placeholders (e.g. the Slack channel), connect the integrations the
    agent references, then save and run.
 
@@ -46,6 +47,8 @@ agents/
     catalog.yaml   # apiVersion agents only: catalog fields (not part of the agent)
     agents/        # apiVersion agents only: private child agents, if any
       <child>/agent.yaml
+    evals/         # apiVersion agents only: evals that score its conversations
+      <eval>.yaml
 catalog.json       # generated index of every agent (do not hand-edit)
 scripts/
   validate_agents.py   # CI: validates every agent.yaml

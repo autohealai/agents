@@ -13,7 +13,9 @@ Two formats are accepted:
 - `apiVersion: agents.autoheal.ai/v1`. The platform rejects any key it does not
   define, so catalog fields live beside it in catalog.yaml. Only this format
   has private child agents, at agents/<name>/agents/<child>/agent.yaml; each is
-  validated too.
+  validated too. It may also ship its own evals at agents/<name>/evals/*.yaml,
+  attached in agent.yaml as `./evals:<name>`; each attachment must resolve, each
+  file must be attached, and each file is checked against the eval format.
 """
 import re
 import sys
@@ -34,6 +36,17 @@ BODY_V1 = ["instructions", "instructions_template", "steps", "agent", "tool", "r
 LEGACY_KEYS = ["schema_version", "display_name", "metadata", "capabilities", "model_settings"]
 # Where a v1 agent keeps its catalog fields.
 CATALOG_FILE = "catalog.yaml"
+
+# An agent's own evals: agents/<name>/evals/<eval>.yaml, attached as ./evals:<eval>.
+# The rules mirror the platform's eval format, plus three of this library's own: a
+# judge leaves `model` out so the workspace's judge model scores it; there are no
+# `script` evals, because a script names code only Autoheal can register; and no
+# `applies_to`, because judges read the conversation, not the artifacts it wrote.
+EVALS_DIR = "evals"
+EVAL_REF_RE = re.compile(r"^\./evals:([a-z0-9_-]+)$")
+EVAL_KEYS = {"schema_version", "name", "description", "type", "judged_on",
+             "looks_for", "sampling", "rubrics"}
+SCORING_KEYS = {"boolean": set(), "numeric": {"min", "max"}, "categorical": {"labels"}}
 
 # Closed sets — an invalid value is an error (it would break the gallery).
 CATEGORIES = {"sre", "security", "ci-cd", "cost", "code-review"}
@@ -151,6 +164,103 @@ def validate_v1(rel, doc, errors):
             )
 
 
+def validate_eval(rel, doc, errors):
+    """One eval file, against the format the platform scores."""
+    for key in sorted(set(doc) - EVAL_KEYS):
+        hint = (" (leave it out: the workspace's judge model scores it)" if key == "model"
+                else " (scripts are registered by Autoheal, not shipped here)" if key in ("ref", "params")
+                else " (judges read the conversation; check the record through the calls that write it)"
+                if key == "applies_to" else "")
+        errors.append(f"{rel}: unknown key '{key}'{hint}")
+    if doc.get("schema_version", 1) != 1:
+        errors.append(f"{rel}: schema_version must be 1")
+    for field in ("name", "description"):
+        if not isinstance(doc.get(field), str) or not doc[field].strip():
+            errors.append(f"{rel}: missing required field '{field}'")
+    if doc.get("type") != "judge":
+        errors.append(f"{rel}: type must be 'judge'")
+    if doc.get("judged_on", "final_answer") not in ("final_answer", "every_turn"):
+        errors.append(f"{rel}: judged_on must be 'final_answer' or 'every_turn'")
+    looks_for = doc.get("looks_for")
+    if looks_for is not None:
+        if not isinstance(looks_for, dict) or set(looks_for) - {"tools", "bash"}:
+            errors.append(f"{rel}: looks_for takes only 'tools' and 'bash'")
+        elif not all(isinstance(v, list) and all(isinstance(s, str) and s for s in v)
+                     for v in looks_for.values()):
+            errors.append(f"{rel}: looks_for.tools and looks_for.bash must be lists of text")
+        if doc.get("judged_on") != "every_turn":
+            errors.append(f"{rel}: looks_for needs judged_on: every_turn")
+    sampling = doc.get("sampling")
+    if sampling is not None:
+        rate = sampling.get("rate") if isinstance(sampling, dict) else None
+        if isinstance(rate, bool) or not isinstance(rate, (int, float)) or not 0 <= rate <= 1:
+            errors.append(f"{rel}: sampling.rate must be a number from 0 to 1")
+    rubrics = doc.get("rubrics")
+    if not isinstance(rubrics, list) or not rubrics:
+        errors.append(f"{rel}: needs at least one rubric")
+        return
+    names = set()
+    for i, rubric in enumerate(rubrics):
+        where = f"{rel}: rubrics[{i}]"
+        if not isinstance(rubric, dict):
+            errors.append(f"{where} must be a mapping")
+            continue
+        for key in sorted(set(rubric) - {"name", "prompt", "scoring"}):
+            errors.append(f"{where}: unknown key '{key}'")
+        name = rubric.get("name")
+        if not isinstance(name, str) or not name.isidentifier():
+            errors.append(f"{where}: name must be a valid Python identifier")
+        elif name in names:
+            errors.append(f"{where}: duplicate rubric name '{name}'")
+        else:
+            names.add(name)
+        if not isinstance(rubric.get("prompt"), str) or not rubric["prompt"].strip():
+            errors.append(f"{where}: missing prompt")
+        scoring = rubric.get("scoring")
+        kind = scoring.get("type") if isinstance(scoring, dict) else None
+        if kind not in SCORING_KEYS:
+            errors.append(f"{where}: scoring.type must be boolean, numeric or categorical")
+            continue
+        for key in sorted(set(scoring) - {"type"} - SCORING_KEYS[kind]):
+            errors.append(f"{where}: '{key}' does not apply to a {kind} rubric")
+        if kind == "categorical":
+            labels = scoring.get("labels")
+            if (not isinstance(labels, list) or not labels
+                    or not all(isinstance(x, str) and x.strip() for x in labels)
+                    or len(set(labels)) != len(labels)):
+                errors.append(f"{where}: labels must be a non-empty list of distinct names")
+        if kind == "numeric" and (scoring.get("min", 0), scoring.get("max", 1)) != (0, 1):
+            errors.append(f"{where}: a numeric rubric is scored from 0 to 1")
+
+
+def validate_evals(rel, doc, agent_dir, errors):
+    """The agent's `evals:` attachments and the files in its evals/ folder."""
+    attached = set()
+    entries = doc.get("evals") or []
+    if not isinstance(entries, list):
+        errors.append(f"{rel}: 'evals' must be a list")
+        entries = []
+    for entry in entries:
+        ref = entry.get("eval") if isinstance(entry, dict) else entry
+        match = EVAL_REF_RE.match(ref) if isinstance(ref, str) else None
+        if not match:
+            errors.append(f"{rel}: eval '{ref}' must be the agent's own, written ./evals:<name>")
+            continue
+        attached.add(match.group(1))
+        if not (agent_dir / EVALS_DIR / f"{match.group(1)}.yaml").exists():
+            errors.append(f"{rel}: {ref} has no {EVALS_DIR}/{match.group(1)}.yaml")
+    for path in sorted((agent_dir / EVALS_DIR).glob("*")):
+        eval_rel = path.relative_to(AGENTS_DIR.parent)
+        if path.suffix != ".yaml":
+            errors.append(f"{eval_rel}: an eval file must end in .yaml")
+            continue
+        if path.stem not in attached:
+            errors.append(f"{eval_rel}: not attached; add ./evals:{path.stem} to {rel}")
+        eval_doc = load(path, eval_rel, errors)
+        if eval_doc is not None:
+            validate_eval(eval_rel, eval_doc, errors)
+
+
 def main() -> int:
     errors: list[str] = []
     warnings: list[str] = []
@@ -171,6 +281,7 @@ def main() -> int:
         v1 = "apiVersion" in doc
         if v1:
             validate_v1(rel, doc, errors)
+            validate_evals(rel, doc, spec.parent, errors)
         else:
             for field in REQUIRED:
                 if field not in doc or doc[field] in (None, ""):
