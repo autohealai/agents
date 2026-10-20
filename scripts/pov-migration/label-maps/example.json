@@ -1,0 +1,16 @@
+{
+  "_comment": "Example label map. product_domains: old product tag -> domain label (null: no domain yet). fold_integrations: tool alias -> integration name. drop_integrations: generic categories to leave out.",
+  "product_domains": {
+    "payments": "payments",
+    "payments-classic": "payments",
+    "card-issuing": "payments",
+    "invoicing": "invoicing",
+    "new-product": null
+  },
+  "fold_integrations": {
+    "wso2-apim": "wso2"
+  },
+  "drop_integrations": [
+    "internal-tool"
+  ]
+}

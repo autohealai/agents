@@ -50,6 +50,7 @@ catalog.json       # generated index of every agent (do not hand-edit)
 scripts/
   validate_agents.py   # CI: validates every agent.yaml
   build_catalog.py     # CI: regenerates catalog.json
+  pov-migration/       # moves a customer's data from a POV install to a new install (see its README)
 ```
 
 `catalog.json` is a machine-readable index of every agent (category, trigger,
