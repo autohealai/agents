@@ -20,7 +20,6 @@ from db import (
     RunStopped,
     Session,
     connect,
-    load_user_map,
     outside_problem,
     require_columns,
     revision,
@@ -36,8 +35,6 @@ TABLES = [
 ]
 # Sessions a target worker could try to resume if they still looked live.
 LIVE_SESSION_STATUSES = {"running", "waiting_for_input"}
-# Non-user actors that appear in user-id columns and must not be mapped.
-SYSTEM_ACTORS = {"ticket-outcome-watcher", "system", "agent", ""}
 # Import and undo share one claim, so they never run at the same time.
 CLAIM = "pov-migration:investigations"
 # What the export reads by name; anything else is copied as the source has it.
@@ -289,31 +286,18 @@ def check_ram_headroom(bundle: Path, todo: list[str]):
 
 
 class Transform:
-    """The deliberate changes on the way in. Everything else is copied as is."""
+    """The deliberate changes on the way in. Everything else, user ids included, is copied as is."""
 
-    def __init__(self, tenant: str, project: str, user_map: dict[str, str]):
-        self.tenant, self.project, self.user_map = tenant, project, user_map
-        self.unmapped_users: set[str] = set()
+    def __init__(self, tenant: str, project: str):
+        self.tenant, self.project = tenant, project
         self.detached_parents = 0
-
-    def user(self, uid):
-        if uid in SYSTEM_ACTORS or uid is None:
-            return uid
-        if uid in self.user_map:
-            return self.user_map[uid]
-        self.unmapped_users.add(uid)
-        return uid
 
     def apply(self, doc: dict) -> dict:
         inv = doc["investigations"][0]
         inv.update(tenant_id=self.tenant, project_id=self.project, is_shadow=True, is_running=False)
-        inv["author_id"] = self.user(inv.get("author_id"))
-        for h in doc["hypotheses"]:
-            h["status_changed_by"] = self.user(h.get("status_changed_by"))
         moving = {s["id"] for s in doc["agent_sessions"]}
         for s in doc["agent_sessions"]:
             s.update(tenant_id=self.tenant, project_id=self.project)
-            s["started_by"] = self.user(s.get("started_by"))
             # The chat or triage session that started an investigation stays behind.
             parent = s.get("parent_session_id")
             if parent and parent not in moving:
@@ -325,11 +309,8 @@ class Transform:
                 self.detached_parents += 1
             if s.get("status") in LIVE_SESSION_STATUSES:
                 s.update(status="stopped", queued_msgs=[])
-        for m in doc["agent_session_messages"]:
-            m["author_id"] = self.user(m.get("author_id"))
         for f in doc["feedbacks"]:
             f.update(tenant_id=self.tenant, project_id=self.project)
-            f["user_id"] = self.user(f.get("user_id"))
         return doc
 
 
@@ -493,7 +474,7 @@ async def import_(args):
             print("dry run: checks passed, nothing written")
             return
 
-        transform = Transform(args.tenant, args.project, load_user_map(args.user_map))
+        transform = Transform(args.tenant, args.project)
         for n, inv_id in enumerate(todo, 1):
             t0, written = time.monotonic(), {}
 
@@ -522,7 +503,6 @@ async def import_(args):
                 print(
                     f"  {n}/{len(todo)} done, {len(report['failed'])} failed, {done:.0f}s elapsed, ~{eta:.0f}s left"
                 )
-        report["unmapped_users"] = sorted(transform.unmapped_users)
         report["detached_parent_links"] = transform.detached_parents
     except Exception as e:
         if not (isinstance(e, RunStopped) or outside_problem(e)):
@@ -541,8 +521,6 @@ async def import_(args):
     print(
         f"imported {len(report['imported'])}, failed {len(report['failed'])}, skipped {len(report['skipped_existing'])} in {report['seconds']}s"
     )
-    if report.get("unmapped_users"):
-        print(f"  {len(report['unmapped_users'])} user ids kept as is (no mapping given)")
     if report.get("detached_parent_links"):
         print(
             f"  {report['detached_parent_links']} transcripts started by a chat or triage session: link kept as pov_parent_session_id"
@@ -717,7 +695,6 @@ def add_commands(sub):
         if name != "verify-investigations":
             s.add_argument("--dry-run", action="store_true")
     imp = sub.choices["import-investigations"]
-    imp.add_argument("--user-map", help="CSV with old_user_id,new_user_id")
     imp.add_argument("--report", help="write a JSON report of the run here")
 
 

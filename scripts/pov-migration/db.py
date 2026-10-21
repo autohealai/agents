@@ -4,7 +4,6 @@ asyncpg is imported lazily, so the skills and label commands run on a laptop wit
 """
 
 import asyncio
-import csv
 import errno
 import json
 import os
@@ -218,11 +217,3 @@ async def require_columns(conn, needs: dict[str, list[str]], which: str = "sourc
 
 def read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
-
-
-def load_user_map(path: str | None) -> dict[str, str]:
-    """CSV with old_user_id,new_user_id. Ids without a row are kept as they are."""
-    if not path:
-        return {}
-    with open(path) as f:
-        return {row["old_user_id"]: row["new_user_id"] for row in csv.DictReader(f)}

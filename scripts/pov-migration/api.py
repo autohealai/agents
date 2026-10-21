@@ -46,7 +46,8 @@ class Target:
             url += "?" + urllib.parse.urlencode({k: v for k, v in query.items() if v is not None})
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(url, data=data, method=method)
-        req.add_header("Authorization", f"Bearer {self.token}")
+        # Unredirected: a redirect to another host must not carry the token there.
+        req.add_unredirected_header("Authorization", f"Bearer {self.token}")
         req.add_header("Accept", "application/json")
         if data is not None:
             req.add_header("Content-Type", "application/json")
@@ -115,7 +116,15 @@ def token_expires_at(token: str) -> datetime | None:
 
 
 def check_token(token: str, need_minutes: int = 30):
-    """Refuse an expired token; warn when it may run out partway through a long step."""
+    """Refuse an API key or an expired token; warn when it may run out partway through a long step."""
+    if token.startswith(("ahpat_", "ahsa_")):
+        print(
+            "STOPPED: this is an API key. The skills and project checks only accept a login token from the browser"
+        )
+        print(
+            "  (sign in to the new install, copy the Authorization header of any /api request, save it to the token file)"
+        )
+        sys.exit(2)
     exp = token_expires_at(token)
     if exp is None:
         return

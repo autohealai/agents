@@ -2,12 +2,13 @@
 
 export-memories   old agents DB -> memories_source.jsonl + agents_md.md in the bundle
 convert-memories  LLM rewrites each memory as Use when / What to do / Avoid when,
-                  validated by the app's own MemoryDraft. Writes memories_converted.jsonl
-                  for review. Touches no database. Rerun converts only what is missing.
+                  validated by the app's own MemoryDraft. Writes memories_converted.jsonl.
+                  Touches no database. Rerun converts only what is missing.
                   A draft that adds names, ids, dates or numbers the lesson never mentions
-                  gets another try; if it keeps adding them, it is held for review.
-accept-memories   keep a held draft as written, after a person read it
-import-memories   converted memories -> new agents DB, one transaction per memory
+                  gets another try. If it keeps adding them, or keeps breaking the format,
+                  the memory keeps its original text instead.
+import-memories   every exported memory -> new agents DB, with its old status (accepted ones
+                  active, pending ones in Needs review), one transaction per memory
 verify-memories / undo-memories
 
 convert-memories imports agents-py (model factory, MemoryDraft), so run it where
@@ -30,7 +31,6 @@ from db import (
     Session,
     columns_of,
     connect,
-    load_user_map,
     outside_problem,
     read_jsonl,
     require_columns,
@@ -224,8 +224,8 @@ async def export_memories(args):
 
 INSTRUCTIONS = """\
 You restate one lesson that an incident-investigation agent saved on an older version of
-Autoheal, so it fits the new memory format. A person already reviewed and accepted this
-lesson. Your job is to say the same thing in the new shape, not to judge it or improve it.
+Autoheal, so it fits the new memory format. Your job is to say the same thing in the new
+shape, not to judge it or improve it.
 
 ## Stay faithful to the lesson
 
@@ -278,11 +278,16 @@ Their agents.md, which the investigation agent always read:
 """
 
 
-def lesson_text(m: dict) -> str:
-    """The memory's own words: title, when it applies (the old trigger) and the lesson."""
+def original_text(m: dict) -> str:
+    """The old memory's content, led by its trigger (when it applies) if it has one."""
     trigger = (m.get("source_metadata") or {}).get("trigger")
     when = f"When it applies: {trigger}\n\n" if isinstance(trigger, str) and trigger.strip() else ""
-    return f"Title: {m['title']}\n\n{when}{m['content']}"
+    return f"{when}{m['content']}"
+
+
+def lesson_text(m: dict) -> str:
+    """The memory's own words, as the LLM sees them."""
+    return f"Title: {m['title']}\n\n{original_text(m)}"
 
 
 def prompt_for(item: dict) -> str:
@@ -370,8 +375,8 @@ COMMON_TOKENS = {
 }
 _DATE_TIME = r"\b\d{1,4}[/-]\d{1,2}(?:[/-]\d{1,4})?\b|\b\d{1,2}:\d{2}\b"  # 04/24, 2026-07-16, 20:45
 _CODE = (
-    r"[A-Za-z_][\w-]*(?:[./][\w{}-]+)+"  # dotted names and paths: card.amount, v1/vcc/x
-    r"|\b(?=[A-Za-z]*\d)(?=\d*[A-Za-z])\w+\b"  # letters and digits: INC0719466, PRHVSL01, Org2
+    r"[A-Za-z_][\w-]*(?:[./][\w{}-]+)+"  # dotted names and paths: order.total, v2/users/id
+    r"|\b(?=[A-Za-z]*\d)(?=\d*[A-Za-z])\w+\b"  # letters and digits: INC0000001, HOST01, Node2
     r"|\b[a-z]+[A-Z]\w*|\b[A-Z][a-z]+[A-Z]\w*"  # camelCase, PascalCase
     r"|\b[A-Z]{3,}\b|\b\w+_\w+\b"  # ALLCAPS, snake_case
 )
@@ -488,7 +493,7 @@ async def convert_memories(args):
         for i in items
         if not (
             (prev := done.get(i["memory"]["id"]))
-            and (prev.get("draft") or prev.get("rejected"))
+            and (prev.get("draft") or prev.get("use_original"))
             and prev["input_hash"] == input_hash(i, agents_md, model_name)
             and not args.force
         )
@@ -539,13 +544,12 @@ async def convert_memories(args):
                 ) as e:  # broke MemoryDraft's rules, or kept adding details, on every retry
                     if rejected := deps["rejected"]:
                         rec.update(
-                            error=f"adds details the lesson never mentions: {', '.join(rejected['added'])}",
-                            rejected=rejected,
-                            attempts=attempt,
+                            error=f"adds details the lesson never mentions: {', '.join(rejected['added'])}"
                         )
                     else:
                         cause = e.__cause__ or e.__context__
-                        rec.update(error=f"invalid output: {cause or e}"[:600], attempts=attempt)
+                        rec.update(error=f"invalid output: {cause or e}"[:600])
+                    rec.update(use_original=True, attempts=attempt)
                     break
                 except (
                     Exception
@@ -556,8 +560,10 @@ async def convert_memories(args):
                         and e.status_code < 500
                         and e.status_code != 429
                     )
-                    if refused:
-                        break  # the model rejects this request every time
+                    if (
+                        refused
+                    ):  # e.g. a wrong model id: retrying won't help, the memory stays unconverted
+                        break
                     if attempt < args.attempts:
                         await asyncio.sleep(min(60, 5 * 2 ** (attempt - 1)))
         return rec
@@ -578,49 +584,20 @@ async def convert_memories(args):
     tmp.replace(out_path)
 
     ok = [r for r in results if r.get("draft")]
-    failed = [r for r in results if not r.get("draft")]
+    original = [r for r in results if r.get("use_original")]
+    unsettled = [r for r in results if not (r.get("draft") or r.get("use_original"))]
     tin = sum(r.get("input_tokens") or 0 for r in ok)
     tout = sum(r.get("output_tokens") or 0 for r in ok)
-    retried = sum(1 for r in results if (r.get("attempts") or 1) > 1)
-    fixed = sum(1 for r in ok if r.get("model_retries"))
     print(
-        f"converted {len(ok)}, needs review {len(failed)} in {time.monotonic() - started:.1f}s; "
-        f"tokens in {tin}, out {tout}; {fixed} fixed their draft when told, {retried} needed another attempt"
+        f"rewrote {len(ok)}, kept the original text for {len(original)}, model errors {len(unsettled)} "
+        f"in {time.monotonic() - started:.1f}s; tokens in {tin}, out {tout}"
     )
-    for r in failed:
-        print(f"  needs review {r['legacy_id']}: {r['error']}")
-    waiting = [
-        i["memory"]["id"]
-        for i in read_jsonl(bundle / "memories_source.jsonl")
-        if not done.get(i["memory"]["id"], {}).get("draft")
-    ]
-    if waiting:
-        print(
-            f"{len(waiting)} memories in this bundle still need review or conversion; only converted ones are imported"
-        )
-        sys.exit(1)
-
-
-async def accept_memories(args):
-    """A reviewer read a held draft (one that added details) and keeps it as written."""
-    path = Path(args.bundle) / "memories_converted.jsonl"
-    rows = read_jsonl(path)
-    picked = []
-    for prefix in args.ids.split(","):
-        hits = [r for r in rows if r["legacy_id"].startswith(prefix.strip())]
-        if len(hits) != 1:
-            sys.exit(f"{prefix}: matches {len(hits)} memories")
-        if not hits[0].get("rejected"):
-            sys.exit(f"{prefix}: has no held draft to accept")
-        picked.append(hits[0])
-    for r in picked:
-        held = r.pop("rejected")
-        r.pop("error", None)
-        r.update(draft=held["draft"], content=held["content"], accepted_with_added=held["added"])
-        print(f"  accepted {r['legacy_id']}: {held['draft']['title']}")
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text("".join(json.dumps(r) + "\n" for r in rows))
-    tmp.replace(path)
+    for r in original:
+        print(f"  original text {r['legacy_id']}: {r['error']}")
+    for r in unsettled:
+        print(f"  model error {r['legacy_id']}: {r['error']}")
+    if unsettled:
+        raise RunStopped(f"{len(unsettled)} memories hit model errors; rerun to retry just those")
 
 
 def fake_model(mode: str):
@@ -685,12 +662,16 @@ def fake_model(mode: str):
 async def import_memories(args):
     bundle = Path(args.bundle)
     sources = {i["memory"]["id"]: i for i in read_jsonl(bundle / "memories_source.jsonl")}
-    ready = [c for c in read_jsonl(bundle / "memories_converted.jsonl") if c.get("draft")]
-    not_ready = sorted(set(sources) - {c["legacy_id"] for c in ready})
-    user_map = load_user_map(args.user_map)
+    ready, unsettled = memory_texts(bundle, sources)
+    if unsettled:
+        print(
+            f"STOPPED before writing anything: {len(unsettled)} memories are not converted yet, e.g. {unsettled[:3]}"
+        )
+        print("  run convert-memories (or migrate-all) first")
+        sys.exit(2)
     session = Session(args.db, CLAIM)
     conn = await session.open()
-    report = {"imported": [], "skipped_existing": [], "failed": {}, "not_converted": not_ready}
+    report = {"imported": [], "skipped_existing": [], "failed": {}}
     started = time.monotonic()
     try:
         await require_columns(conn, TARGET_COLUMNS, "target")
@@ -716,8 +697,9 @@ async def import_memories(args):
             keys,
             mem_ids,
         )
+        kept = sum(1 for c in ready if c.get("use_original"))
         print(
-            f"target revision {await revision(conn)}; {len(ready)} converted, {len(not_ready)} not converted (not imported)"
+            f"target revision {await revision(conn)}; {len(ready)} memories, {kept} of them with their original text"
         )
         if clash or key_clash:
             print("STOPPED before writing anything:")
@@ -741,7 +723,7 @@ async def import_memories(args):
             lid, src = c["legacy_id"], sources[c["legacy_id"]]["memory"]
 
             async def write(conn, c=c, src=src, lid=lid):
-                await import_one(conn, c, src, ids[lid], args.tenant, args.project, user_map)
+                await import_one(conn, c, src, ids[lid], args.tenant, args.project)
 
             try:
                 why = await session.write_item(lid, write, exists=memory_exists(ids[lid]["memory"]))
@@ -774,16 +756,9 @@ async def import_memories(args):
         sys.exit(1)
 
 
-async def import_one(
-    conn, c: dict, src: dict, ids: dict, tenant: str, project: str, user_map: dict
-):
+async def import_one(conn, c: dict, src: dict, ids: dict, tenant: str, project: str):
     status = MOVING[src["status"]]
     active = status == "active"
-    reviewer = (
-        user_map.get(src.get("resolved_by_user_id"), src.get("resolved_by_user_id"))
-        if active
-        else None
-    )
     draft = c["draft"]
     md = src.get("source_metadata") or {}
     point = md.get("inflection_point")
@@ -813,7 +788,7 @@ async def import_one(
             tenant,
             PROFILE_ID,
             status,
-            reviewer,
+            None,  # owner: the old install's users don't exist on the new one
             json.dumps(provenance),
             project,
             src.get("created_at"),
@@ -848,7 +823,7 @@ async def import_one(
             ids["memory"],
             json.dumps(reasoning) if reasoning else None,
             f"{AUTHOR}:{src['id']}",
-            reviewer,
+            None,  # reviewed by: same reason; reviewed_at keeps the date
             src.get("resolved_at") if active else None,
             project,
             src.get("created_at"),
@@ -856,6 +831,41 @@ async def import_one(
 
 
 # ---------------------------------------------------------------- verify / undo
+
+
+def memory_texts(bundle: Path, sources: dict) -> tuple[list[dict], list[str]]:
+    """What each memory goes in with: its rewritten draft, or its original text when the LLM could not
+    rewrite it faithfully. Also returns the memories that have neither yet (convert has not settled them).
+    """
+    rows = (
+        {r["legacy_id"]: r for r in read_jsonl(bundle / "memories_converted.jsonl")}
+        if (bundle / "memories_converted.jsonl").exists()
+        else {}
+    )
+    ready, unsettled = [], []
+    for lid, item in sources.items():
+        r = rows.get(lid, {})
+        if r.get("draft"):
+            ready.append(r)
+        elif r.get("use_original"):
+            m = item["memory"]
+            plain = {
+                "title": m["title"],
+                "applies_when": None,
+                "guidance": None,
+                "avoid_when": None,
+            }
+            ready.append(
+                {
+                    "legacy_id": lid,
+                    "draft": plain,
+                    "content": original_text(m),
+                    "use_original": True,
+                }
+            )
+        else:
+            unsettled.append(lid)
+    return ready, unsettled
 
 
 def memory_exists(memory_id: str):
@@ -872,25 +882,13 @@ def exported_ids(bundle: Path) -> list[dict]:
     return [ids_for(i["memory"]["id"]) for i in read_jsonl(bundle / "memories_source.jsonl")]
 
 
-def converted_ids(bundle: Path) -> list[dict]:
-    return [
-        ids_for(r["legacy_id"])
-        for r in read_jsonl(bundle / "memories_converted.jsonl")
-        if r.get("draft")
-    ]
-
-
 async def verify_memories(args):
     bundle = Path(args.bundle)
     sources = [i["memory"] for i in read_jsonl(bundle / "memories_source.jsonl")]
     want = {"active": 0, "pending": 0}
-    conv = {
-        r["legacy_id"] for r in read_jsonl(bundle / "memories_converted.jsonl") if r.get("draft")
-    }
     for s in sources:
-        if s["id"] in conv:
-            want[MOVING[s["status"]]] += 1
-    mem_ids = [i["memory"] for i in converted_ids(bundle)]
+        want[MOVING[s["status"]]] += 1
+    mem_ids = [i["memory"] for i in exported_ids(bundle)]
     conn = await connect(args.db)
     try:
         got = {
@@ -1017,14 +1015,6 @@ def add_commands(sub):
         help="use a stand-in model (tests only)",
     )
 
-    a = sub.add_parser("accept-memories")
-    a.add_argument("--bundle", required=True)
-    a.add_argument(
-        "--ids",
-        required=True,
-        help="comma-separated legacy memory ids (the first 8 characters are enough)",
-    )
-
     for name in ("import-memories", "verify-memories", "undo-memories"):
         s = sub.add_parser(name)
         s.add_argument("--bundle", required=True)
@@ -1033,16 +1023,12 @@ def add_commands(sub):
         s.add_argument("--project", required=True)
         if name != "verify-memories":
             s.add_argument("--dry-run", action="store_true")
-    sub.choices["import-memories"].add_argument(
-        "--user-map", help="CSV with old_user_id,new_user_id"
-    )
     sub.choices["import-memories"].add_argument("--report")
 
 
 COMMANDS = {
     "export-memories": export_memories,
     "convert-memories": convert_memories,
-    "accept-memories": accept_memories,
     "import-memories": import_memories,
     "verify-memories": verify_memories,
     "undo-memories": undo_memories,

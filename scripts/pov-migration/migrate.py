@@ -1,30 +1,28 @@
-"""Move a customer's data from their POV install to a new install. See README.md for the run order.
+"""Move a customer's data from their POV install to a new install. See README.md.
 
-The whole migration, as one command (run it twice: it pauses once for the memory review):
-  migrate-all             exports, converts, then after --reviewed imports, labels and verifies everything
+The whole migration, in one run:
+  migrate-all             exports, rewrites the memories, then imports, labels and verifies everything
 
 Or step by step:
 
-Skills (laptop, through the app's API):
+Skills (through the app's API):
   probe                   what the token can reach on the target
   export-skills           old agents DB -> SKILL.md files
   push-skills             commit them to a project's Git repository
 
-Memories (convert anywhere agents-py is importable; database steps in a pod):
+Memories (convert where agents-py is importable, e.g. an agents-py pod):
   export-memories         memories + their hypothesis + the old agents.md -> bundle
   convert-memories        LLM rewrites each one as Use when / What to do / Avoid when (no database writes)
-  review-memories         HTML page to read every converted memory next to its old lesson
-  accept-memories         keep a draft that was held for adding details, after reading it
   import-memories / verify-memories / undo-memories
 
-Memory labels (laptop, through the app's API):
+Memory labels (through the app's API):
   label-memories / verify-labels / unlabel-memories   (unlabel BEFORE undo-memories)
 
-Investigations (in a pod; hidden cold storage):
+Investigations (hidden history):
   export-investigations / import-investigations / verify-investigations / undo-investigations
 
-Exit codes: 0 done; 1 some items failed (the rest went in), memories still need review, or a crash;
-2 stopped before writing anything; 3 stopped on an outside problem (rerun the same command to continue).
+Exit codes: 0 done; 1 some items failed (the rest went in) or a crash; 2 stopped before writing
+anything; 3 stopped on an outside problem (rerun the same command to continue).
 """
 
 import sys
@@ -41,7 +39,6 @@ import investigations  # noqa: E402
 import labels  # noqa: E402
 import memories  # noqa: E402
 import pipeline  # noqa: E402
-import review  # noqa: E402
 import skills  # noqa: E402
 
 
@@ -53,14 +50,12 @@ def main():
     pipeline.add_commands(sub)
     skills.add_commands(sub)
     memories.add_commands(sub)
-    review.add_commands(sub)
     labels.add_commands(sub)
     investigations.add_commands(sub)
     commands = {
         **pipeline.COMMANDS,
         **skills.COMMANDS,
         **memories.COMMANDS,
-        **review.COMMANDS,
         **labels.COMMANDS,
         **investigations.COMMANDS,
     }

@@ -81,17 +81,14 @@ def labels_for(memory: dict, label_map: dict, unmapped: Counter) -> dict[str, li
 
 
 def plan(bundle: Path, label_map: dict) -> tuple[dict[str, dict], Counter, list]:
-    """Memory id on the new install -> its labels, for every converted (so imported) memory."""
-    sources = {i["memory"]["id"]: i["memory"] for i in read_jsonl(bundle / "memories_source.jsonl")}
-    converted = read_jsonl(bundle / "memories_converted.jsonl")
+    """Memory id on the new install -> its labels, for every exported (so imported) memory."""
     unmapped = Counter()
     out, titles = {}, []
-    for c in converted:
-        if c.get("draft"):
-            m = sources[c["legacy_id"]]
-            mid = ids_for(m["id"])["memory"]
-            out[mid] = labels_for(m, label_map, unmapped)
-            titles.append((mid, m["title"]))
+    for item in read_jsonl(bundle / "memories_source.jsonl"):
+        m = item["memory"]
+        mid = ids_for(m["id"])["memory"]
+        out[mid] = labels_for(m, label_map, unmapped)
+        titles.append((mid, m["title"]))
     return out, unmapped, titles
 
 

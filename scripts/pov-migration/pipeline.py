@@ -1,11 +1,9 @@
-"""migrate-all: the whole migration as one command, run twice.
+"""migrate-all: the whole migration as one command.
 
-1st run   checks access, exports from the old database, converts the memories and writes the
-          review page, then stops so a person can read it (accept or fix what was held).
-2nd run   with --reviewed: dry-runs every import first (nothing is written unless all pass), then
-          skills, memories, labels and investigations, each followed by its verify.
-
-Every step skips what is already done, so after any stop you rerun the same command.
+It checks access, exports from the old database, rewrites the memories, dry-runs every import
+(nothing is written unless all pass), then moves skills, memories, labels and investigations,
+each followed by its verify. Every step skips what is already done, so after any stop you
+rerun the same command.
 """
 
 import argparse
@@ -18,7 +16,6 @@ from types import SimpleNamespace
 import investigations
 import labels
 import memories
-import review
 import skills
 from api import api_args
 from db import outside_problem
@@ -26,8 +23,8 @@ from db import outside_problem
 PARTS = ("skills", "memories", "labels", "investigations")
 
 
-async def step(name: str, fn, args: SimpleNamespace, results: list, ok=(0,), note: str = "") -> int:
-    """Run one command; stop the whole run unless it exits with a code in ok (note labels the non-zero ones)."""
+async def step(name: str, fn, args: SimpleNamespace, results: list):
+    """Run one command; stop the whole run unless it succeeds."""
     print(f"\n=== {name}")
     t0, code = time.monotonic(), 0
     try:
@@ -43,22 +40,19 @@ async def step(name: str, fn, args: SimpleNamespace, results: list, ok=(0,), not
             raise
         print(f"STOPPED: {type(e).__name__}: {e}")
         code = 3
-    results.append(
-        (name, code, round(time.monotonic() - t0, 1), note if code and code in ok else "")
-    )
-    if code not in ok:
+    results.append((name, code, round(time.monotonic() - t0, 1)))
+    if code:
         stop(
             results,
             f"STOPPED at '{name}' (exit {code}). Fix what it says, then rerun this same command.",
             code,
         )
-    return code
 
 
 def stop(results: list, message: str, code: int):
     print("\n=== summary")
-    for name, c, secs, note in results:
-        print(f"  {'ok    ' if c == 0 or note else f'exit {c}'}  {name:34} {secs:>7}s  {note}")
+    for name, c, secs in results:
+        print(f"  {'ok    ' if c == 0 else f'exit {c}'}  {name:34} {secs:>7}s")
     print(message)
     sys.exit(code)
 
@@ -131,32 +125,7 @@ async def migrate_all(a):
             retries=3,
             force=False,
         )
-        held = await step(
-            "convert-memories",
-            memories.COMMANDS["convert-memories"],
-            convert,
-            results,
-            ok=(0, 1),
-            note="some memories need review",
-        )
-        page = bundle / "review.html"
-        await step(
-            "review-memories",
-            review.COMMANDS["review-memories"],
-            SimpleNamespace(bundle=str(bundle), out=str(page), previous=None),
-            results,
-        )
-        if not a.reviewed:
-            stop(
-                results,
-                f"\nPAUSED for review: read {page}. Keep held drafts with accept-memories or fix them, "
-                "then rerun this same command with --reviewed.",
-                0,
-            )
-        if held:
-            print(
-                "  note: memories that still need review are left out; accept them and rerun to bring them in"
-            )
+        await step("convert-memories", memories.COMMANDS["convert-memories"], convert, results)
 
     # Every check before any write.
     if run["skills"]:
@@ -170,9 +139,7 @@ async def migrate_all(a):
         await step(
             "import-memories (dry run)",
             memories.COMMANDS["import-memories"],
-            SimpleNamespace(
-                **db, bundle=str(bundle), dry_run=True, user_map=a.user_map, report=None
-            ),
+            SimpleNamespace(**db, bundle=str(bundle), dry_run=True, report=None),
             results,
         )
     if run["labels"]:
@@ -193,9 +160,7 @@ async def migrate_all(a):
         await step(
             "import-investigations (dry run)",
             investigations.COMMANDS["import-investigations"],
-            SimpleNamespace(
-                **db, bundle=str(bundle), dry_run=True, user_map=a.user_map, report=None
-            ),
+            SimpleNamespace(**db, bundle=str(bundle), dry_run=True, report=None),
             results,
         )
 
@@ -216,7 +181,6 @@ async def migrate_all(a):
                 **db,
                 bundle=str(bundle),
                 dry_run=False,
-                user_map=a.user_map,
                 report=str(reports / "memories.json"),
             ),
             results,
@@ -246,7 +210,6 @@ async def migrate_all(a):
                 **db,
                 bundle=str(bundle),
                 dry_run=False,
-                user_map=a.user_map,
                 report=str(reports / "investigations.json"),
             ),
             results,
@@ -265,9 +228,7 @@ async def migrate_all(a):
 
 
 def add_commands(sub):
-    m = sub.add_parser(
-        "migrate-all", help="the whole migration in order; pauses once for the memory review"
-    )
+    m = sub.add_parser("migrate-all", help="the whole migration, in order, in one run")
     m.add_argument("--bundle", required=True, help="working folder; reruns pick up from it")
     m.add_argument(
         "--source-db", help="the old install's agents database (needed until the exports have run)"
@@ -277,7 +238,6 @@ def add_commands(sub):
     m.add_argument("--project", required=True)
     api_args(m, required=False)
     m.add_argument("--label-map", help="customer label map JSON (see label-maps/)")
-    m.add_argument("--user-map", help="CSV with old_user_id,new_user_id (optional)")
     m.add_argument(
         "--model",
         help="model for the memory conversion (else AGENT_CONFIG__MODEL_PROVIDER_DEFAULT)",
@@ -287,9 +247,6 @@ def add_commands(sub):
     )
     m.add_argument("--concurrency", type=int, default=8, help="memories converted at once")
     m.add_argument("--skip", help=f"comma-separated parts to leave out: {', '.join(PARTS)}")
-    m.add_argument(
-        "--reviewed", action="store_true", help="the review page was read; go on to import"
-    )
     # A stand-in model, for rehearsing the pipeline without an LLM; hidden from --help.
     m.add_argument(
         "--fake", choices=["ok", "flaky", "slow", "ratelimit", "leaky"], help=argparse.SUPPRESS
