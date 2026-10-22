@@ -1,0 +1,8 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: Cloud Cost Optimization
+category: cost
+summary: Starts from the bill rather than the resource list, attributes each of the largest lines to the service and team that caused it, and only then looks for what could change.
+trigger: schedule
+safety: read-only

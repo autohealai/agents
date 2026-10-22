@@ -1,0 +1,35 @@
+apiVersion: agents.autoheal.ai/v1
+name: service-scorecard
+icon: gauge
+
+description: >-
+  Every week, checks each service against the platform team's scorecard
+  (on-call, SLO, monitors, runbook and so on). For a failing rule it opens a
+  pull request in the owning repository, with SLO targets taken from the
+  service's own 28-day history, and closes the ticket once the rule passes.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: medium
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+  - {integration: github, operation_type: write}
+  - {integration: jira, operation_type: write}
+
+skills:
+  - ./skills:slo-from-history
+
+evals:
+  - ./evals:scorecard-fix-actionability
+  - ./evals:slo-target-grounding
+
+returns:
+  week: {type: string, required: true}
+  passing: {type: string, required: true}
+  failing: {type: string, required: true}
+  summary: {type: string, required: true}
+  actions: string

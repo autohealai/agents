@@ -1,0 +1,16 @@
+name: Verdict correctness
+description: >-
+  How much of the ship-or-hold call the post-release record confirms — the call itself,
+  the reason given for it, and nothing claimed beyond them.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: called
+  prompt: >-
+    Does the verdict match what the release record shows was the right call, and does
+    the stated reason match the mechanism that made it right?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

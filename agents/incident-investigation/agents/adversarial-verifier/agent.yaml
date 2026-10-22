@@ -1,0 +1,39 @@
+apiVersion: agents.autoheal.ai/v1
+name: adversarial-verifier
+icon: scales
+
+description: >-
+  Reviews a proposed root cause with an adversarial stance: tries to break each
+  link of its causal chain against the evidence, records the verdict on the
+  hypothesis record, and returns the specific link that fails, if any.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: high
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+
+skills: []
+
+# The verdict is RECORDED on the hypothesis artifact, not a sentence in a
+# reply. Until it was, "check the citations" was an instruction in the
+# parent's prompt, and whether it happened was only visible by reading the
+# transcript.
+artifacts:
+  - hypothesis
+
+returns:
+  verdict:
+    type: string
+    enum: [confirmed, weakened, refuted]
+    required: true
+  reasoning: {type: string, required: true}
+  failing_link: string
+  alternative: string
+
+# A verifier judges the evidence in front of it; past findings would bias it.
+memory: false

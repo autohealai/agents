@@ -1,0 +1,40 @@
+apiVersion: agents.autoheal.ai/v1
+name: support-escalation-triage
+icon: headset
+
+description: >-
+  When support escalates a Pylon ticket to engineering, replays the customer's
+  own session, errors and logs, and matches them to a known issue by stack
+  trace and release. Drafts the reply for support, or files a reproducible
+  Jira bug to the owning team when the failure is new.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: medium
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+  - {integration: jira, operation_type: write}
+  - {integration: slack, operation_type: write}
+
+skills:
+  - ./skills:escalation-triage
+
+evals:
+  - ./evals:escalation-issue-match
+  - ./evals:escalation-repro-handoff
+
+returns:
+  ticket: {type: string, required: true}
+  verdict:
+    type: string
+    enum: [known_issue, new_bug, not_a_bug]
+    required: true
+  matched_issue: string
+  owner_team: string
+  jira_issue: string
+  summary: {type: string, required: true}
+  reply_draft: {type: string, required: true}

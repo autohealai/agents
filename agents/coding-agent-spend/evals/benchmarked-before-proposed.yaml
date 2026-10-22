@@ -1,0 +1,19 @@
+name: Benchmarked before proposed
+description: >-
+  A change to a model, an effort level or a coding-agent setting is benchmarked on
+  the team's own tasks before it is proposed, and the report gives pass rate, cost
+  and time for every setup tested.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: benchmarked
+  prompt: >-
+    What fraction of the model, effort or settings changes this report proposes or
+    leaves standing were benchmarked on the team's own tasks, with pass rate and cost
+    reported for every setup, before they were proposed? A report that proposes none
+    scores on whether it withdraws untested ones and says what a test would need.
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

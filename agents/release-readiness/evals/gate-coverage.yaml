@@ -1,0 +1,16 @@
+name: Gate coverage
+description: >-
+  Each gate the agent declares is answered from evidence gathered in this run, or
+  reported as unanswered. A gate filled in from the other gates counts as unanswered.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: covered
+  prompt: >-
+    What fraction of the declared gates were answered from evidence in this run, counting
+    a gate inferred from the others as not answered?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

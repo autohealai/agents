@@ -1,0 +1,16 @@
+name: Risk statement completeness
+description: >-
+  Every opportunity carries a risk level AND the sentence that justifies it — what
+  would have to happen for the change to hurt, and how you would know.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: risked
+  prompt: >-
+    What fraction of the opportunities carry both a risk level and a justification
+    a reader could disagree with, counting a bare risk word as absent?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

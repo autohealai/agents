@@ -1,0 +1,33 @@
+apiVersion: agents.autoheal.ai/v1
+name: spend-attributor
+icon: chart-pie-slice
+
+description: >-
+  Takes ONE bill line and works out which service and team actually caused it,
+  from flow and usage rather than from the line's name.
+
+# One line, one flow-log query, one attribution, and it is invoked once per top
+# line — the bulk of a review's model work. Benchmarked over the same four
+# monthly reviews: attribution-correctness within noise, and a run costs about
+# a third of what it did.
+model:
+  name: claude-haiku-4-5
+  max_tokens: 4096
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+
+skills: []
+
+returns:
+  line: {type: string, required: true}
+  monthly_usd: number
+  attributed: {type: boolean, required: true}
+  service: string
+  team: string
+  mechanism:
+    type: string
+    description: What is actually happening that produces this spend.
+  finding: {type: string, required: true}

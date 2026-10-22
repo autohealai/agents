@@ -1,0 +1,18 @@
+name: Root cause grouping
+description: >-
+  Alerts that share a cause are one group, linked through a cited dependency edge;
+  a service taking retries is linked but not blamed; an alert with no edge to the
+  group is kept out of it.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: grouped
+  prompt: >-
+    What fraction of the co-firing alerts are placed correctly, in the cause's group
+    with the edge that links them cited, or in a group of their own when nothing links
+    them?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

@@ -1,0 +1,17 @@
+name: Deploy verdict correctness
+description: >-
+  The verdict (regression, clean or inconclusive) is the one the on-call engineer
+  reached on review, and the action taken follows from it.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: correct
+  prompt: >-
+    How well does the verdict and the action match what on-call concluded about this
+    deploy, counting a revert recommended for a deploy that did not regress anything
+    as a serious miss?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

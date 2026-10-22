@@ -1,0 +1,16 @@
+name: Causal chain completeness
+description: >-
+  The chain runs from the change that started the incident to the impact a customer
+  felt, with no link that is only a correlation.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: complete
+  prompt: >-
+    What fraction of the chain from change to customer impact is present, with each
+    link stating a mechanism rather than a correlation?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

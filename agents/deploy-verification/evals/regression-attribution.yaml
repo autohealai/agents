@@ -1,0 +1,17 @@
+name: Regression attribution
+description: >-
+  Before a movement is called the deploy's, the report rules out a schedule (same
+  hour last week), a dependency, and a traffic change, and cites the evidence for
+  each.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: attributed
+  prompt: >-
+    What fraction of the three attribution checks does the report state and cite before
+    reaching its verdict?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

@@ -1,0 +1,20 @@
+name: Severity calibration
+description: >-
+  How far the severity the agent assigned sits from the one the incident review settled
+  on, in levels.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: severity_match
+  prompt: >-
+    By how many levels does the assigned severity differ from the review's, and in
+    which direction?
+  scoring:
+    type: categorical
+    labels:
+    - under_2
+    - under_1
+    - matched
+    - over_1
+    - over_2

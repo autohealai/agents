@@ -1,0 +1,16 @@
+name: Risk evidence grounding
+description: >-
+  Every reported risk states an outcome, names the team that owns the service it is
+  in, and cites a PR, CI run or panel that resolves.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: evidenced
+  prompt: >-
+    What fraction of the reported risks carry all three of an outcome, an owner and
+    a citation that resolves to what the risk says it says?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

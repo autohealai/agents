@@ -1,0 +1,13 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: EOL Upgrades
+category: ci-cd
+summary: Upgrades every repository in a migration off an end-of-life runtime, toolchain or base image. Tests the upgrade steps on one pilot repository per language first, then opens the rest tier by tier once the platform lead approves. A repository counts as done when production runs the new image.
+trigger: manual
+safety: propose
+requires:
+  integrations:
+  - github
+  - jira
+  - slack

@@ -1,0 +1,39 @@
+apiVersion: agents.autoheal.ai/v1
+name: eol-upgrades
+icon: arrow-circle-up
+
+description: >-
+  Upgrades every repository in a migration off an end-of-life runtime,
+  toolchain or base image. Tests the upgrade steps on one pilot repository per
+  language first, then opens the rest tier by tier once the platform lead
+  approves. A repository counts as done when production runs the new image.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: medium
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+  - {integration: github, operation_type: write}
+  - {integration: jira, operation_type: write}
+  - {integration: slack, operation_type: write}
+
+skills:
+  - ./skills:fleet-migration-playbook
+
+evals:
+  - ./evals:migration-pr-readiness
+  - ./evals:migration-pilot-discipline
+
+returns:
+  campaign: {type: string, required: true}
+  state:
+    type: string
+    enum: [complete, in_progress, blocked]
+    required: true
+  burndown: {type: string, required: true}
+  summary: {type: string, required: true}
+  next_step: string

@@ -1,0 +1,19 @@
+name: Migration pilot discipline
+description: >-
+  Before any pull request goes past the pilots, the playbook is green on one pilot
+  per language family, each fix is recorded as a playbook step, the rest is ordered
+  by tier, and progress is counted from what production runs.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: piloted
+  prompt: >-
+    Of these four, what fraction does the run do before opening a pull request past
+    its pilots: pilots green for each language family in the migration, each fix recorded
+    as a playbook step, the remaining repositories ordered by tier, and progress counted
+    from the images production runs rather than from merged pull requests?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

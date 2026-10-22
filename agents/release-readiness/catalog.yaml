@@ -1,0 +1,8 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: Release Readiness
+category: ci-cd
+summary: Reads a release candidate and its change diff, checks migrations, canary and rollback plan through its own subagents, and returns a ship-or-hold verdict with the blocking risks and the team that owns each one.
+trigger: manual
+safety: read-only

@@ -1,0 +1,13 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: Runbook Execution
+category: sre
+summary: When a known alert fires, runs the approved runbook for it once, then checks recovery against the service's SLO for 15 minutes before resolving. If the service has not recovered, it escalates to on-call with a log of every action taken.
+trigger: manual
+requires:
+  integrations:
+  - aws
+  - pagerduty
+  - slack
+  - jira

@@ -1,0 +1,17 @@
+name: Risk context grounding
+description: >-
+  The risk score and every blocking or high finding rest on production facts from
+  this run (tier, incident history on the touched path, SLO and peak traffic, and
+  for a migration the table's rows and write rate) and cite them.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: grounded
+  prompt: >-
+    What fraction of the review's four score components and its blocking or high findings
+    cite a production fact from this run, rather than resting on the diff alone?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

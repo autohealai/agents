@@ -1,0 +1,17 @@
+name: Review finding accuracy
+description: >-
+  The findings and the recommendation are the ones the owning team reached on review,
+  ranked in the order that matters, with nothing that should block a merge left out.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: accurate
+  prompt: >-
+    How well do the review's findings and its recommendation match what the owning
+    team concluded about this pull request, counting a merge recommendation on a change
+    that should have been blocked as a serious miss?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

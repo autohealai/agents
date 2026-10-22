@@ -1,0 +1,17 @@
+name: Review reminder fit
+description: >-
+  The reminders the run sent are the ones the people on each pull request needed,
+  and each thread's status matches GitHub.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: fit
+  prompt: >-
+    How well do the reminders sent match what the people on each pull request needed,
+    counting a reminder to reviewers on a pull request that is waiting on its author
+    as a serious miss?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

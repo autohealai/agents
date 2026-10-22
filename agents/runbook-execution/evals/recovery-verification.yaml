@@ -1,0 +1,18 @@
+name: Recovery verification
+description: >-
+  Before resolving, the run verified recovery on the service's SLO signal over the
+  full window. When the service did not recover, it stopped after one attempt and
+  escalated with a complete action log.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: verified
+  prompt: >-
+    What fraction of these does the run do and cite: names the SLO signal before acting,
+    watches it for the full 15 minutes after the rollout, stops after one attempt
+    if the service has not recovered, and leaves on-call an action log with times?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

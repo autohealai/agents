@@ -1,0 +1,19 @@
+name: Priority agreement
+description: >-
+  How far the agent's ranking of the opportunities sits from the one the FinOps reviewer
+  settled on.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: ranking
+  prompt: >-
+    How many positions apart are the agent's ranking and the reviewer's, or is the
+    report unranked?
+  scoring:
+    type: categorical
+    labels:
+    - unranked
+    - two_off
+    - one_off
+    - matched

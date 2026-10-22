@@ -1,0 +1,39 @@
+apiVersion: agents.autoheal.ai/v1
+name: service-scaffolding
+icon: stack-plus
+
+description: >-
+  Creates a repository for a new-service request from the approved
+  (golden-path) template, and checks it against the six scorecard rules
+  before handing it over. Also opens pull requests that move older scaffolds
+  to the current template.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: medium
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+  - {integration: github, operation_type: write}
+
+skills:
+  - ./skills:new-service-checklist
+
+evals:
+  - ./evals:scaffold-handover-completeness
+  - ./evals:scorecard-pass-at-creation
+
+returns:
+  outcome:
+    type: string
+    enum: [created, fixed_by_pr, needs_input]
+    required: true
+  service: {type: string, required: true}
+  repository: {type: string, required: true}
+  template: string
+  checklist: {type: string, required: true}
+  summary: {type: string, required: true}
+  follow_up: string

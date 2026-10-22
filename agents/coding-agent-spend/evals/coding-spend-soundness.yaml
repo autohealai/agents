@@ -1,0 +1,18 @@
+name: Coding spend soundness
+description: >-
+  The spend figures agree with what the harness reports, repositories are compared
+  on cost per merged PR rather than on total, and the recommendation targets where
+  the tokens actually went.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: sound
+  prompt: >-
+    How well do the figures, the ranking and the recommendation hold up when platform
+    engineering checks them, counting a cheaper model proposed for the team that ships
+    the most as a serious miss?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

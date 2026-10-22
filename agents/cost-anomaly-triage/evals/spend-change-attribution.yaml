@@ -1,0 +1,18 @@
+name: Spend change attribution
+description: >-
+  Before naming a cause, the report lines up configuration changes, deploys, scaling
+  events and request rate against the hour the spend stepped, and cites the evidence
+  for each.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: attributed
+  prompt: >-
+    What fraction of the four candidate causes (configuration change, deploy, scaling
+    event, traffic) does the report check against the hour of the step and cite before
+    naming one?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

@@ -1,0 +1,16 @@
+name: Evidence grounding
+description: >-
+  Every claim in the report resolves to an evidence id that exists in this run and
+  says what the claim says it says.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: grounded
+  prompt: >-
+    What fraction of the report's claims cite an evidence id that resolves, and that
+    supports the claim made?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

@@ -1,0 +1,41 @@
+apiVersion: agents.autoheal.ai/v1
+name: cost-anomaly-triage
+icon: chart-line-up
+
+description: >-
+  For each daily Vantage cost anomaly, finds the deploy, config change,
+  scaling event or traffic change that caused it, names the owning team, and
+  proposes a fix with its dollar impact, as a pull request when the resource
+  is declared in code.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: medium
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+  - {integration: github, operation_type: write}
+  - {integration: slack, operation_type: write}
+
+skills:
+  - ./skills:cost-anomaly-attribution
+
+evals:
+  - ./evals:anomaly-cause-correctness
+  - ./evals:spend-change-attribution
+
+returns:
+  line: {type: string, required: true}
+  delta_per_day: {type: string, required: true}
+  cause_type:
+    type: string
+    enum: [config_change, deploy, scaling, traffic, unexplained]
+    required: true
+  cause: {type: string, required: true}
+  owner: {type: string, required: true}
+  monthly_impact: {type: string, required: true}
+  fix: {type: string, required: true}
+  summary: {type: string, required: true}

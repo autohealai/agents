@@ -1,0 +1,17 @@
+name: Attribution correctness
+description: >-
+  Each of the top bill lines is attributed to the service and mechanism that actually
+  produced the spend, from flow or usage rather than from the line item's product
+  name.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: attributed
+  prompt: >-
+    What fraction of the top lines are attributed to a mechanism the usage data supports,
+    counting a line explained by its own product name as unattributed?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

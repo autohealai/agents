@@ -1,0 +1,8 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: Incident Investigation
+category: sre
+summary: 'Investigates a production incident end to end: gathers evidence from the connected observability and deployment sources, tests competing explanations through its own subagents, and proposes a bounded mitigation.'
+trigger: manual
+safety: read-only

@@ -1,0 +1,12 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: PR Risk Review
+category: code-review
+summary: Reviews every pull request against main using the service's tier, incident history, SLO and production traffic, scores its risk from 0 to 100, picks reviewers from the catalog, and checks database migrations against the real table size and write rate.
+trigger: manual
+safety: notify
+requires:
+  integrations:
+  - github
+  - slack

@@ -1,0 +1,32 @@
+apiVersion: agents.autoheal.ai/v1
+name: savings-validator
+icon: calculator
+
+description: >-
+  Argues against a set of proposed savings: checks each figure against the line
+  it comes from, and reports the total that would actually be realised.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 4096
+  thinking: high
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+
+skills: []
+
+returns:
+  verdict:
+    type: string
+    enum: [confirmed, overstated, understated]
+    required: true
+  realised_total_usd: {type: number, required: true}
+  overlaps:
+    type: array
+    description: Pairs of proposals that would be paid for out of the same spend.
+    items:
+      type: string
+  finding: {type: string, required: true}

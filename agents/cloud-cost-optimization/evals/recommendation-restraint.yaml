@@ -1,0 +1,15 @@
+name: Recommendation restraint
+description: >-
+  Where a large saving would be bought with headroom that has already proved it was
+  needed, the report declines it explicitly and says what proves it.
+type: judge
+applies_to: high-risk-saving-in-range
+sampling:
+  rate: 1.0
+rubrics:
+- name: declined_well
+  prompt: >-
+    Is the high-risk saving named, declined, and justified with a specific incident,
+    peak or contract rather than with a general caution?
+  scoring:
+    type: boolean

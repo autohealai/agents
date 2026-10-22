@@ -1,0 +1,12 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: Coding Agent Spend
+category: cost
+summary: 'Every night, prices the coding agents'' token usage by type, compares your repositories on cost per merged PR, and finds where each one''s tokens go. It opens the fix as a PR: an ignore rule for the owning team, or a benchmarked settings change for platform engineering.'
+trigger: schedule
+safety: propose
+requires:
+  integrations:
+  - github
+  - slack
