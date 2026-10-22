@@ -3,6 +3,6 @@
 # the platform's own keys. Not part of the agent: do not paste this file.
 display_name: Incident Response
 category: sre
-summary: "Investigates an incident, has its root-cause conclusion adversarially verified, and reports the cause with evidence and mitigations."
+summary: 'Investigates a production incident end to end: gathers evidence from the connected observability and deployment sources, tests competing explanations through its own subagents, and proposes a bounded mitigation.'
 trigger: manual
 safety: read-only
