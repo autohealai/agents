@@ -1,0 +1,39 @@
+apiVersion: agents.autoheal.ai/v1
+name: alert-triage
+icon: bell-ringing
+
+description: >-
+  When a new alert group fires, links the alerts that fired alongside it
+  through the service dependency graph and pages the owner of the cause once.
+  Flags noisy monitors and proposes a threshold change.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: medium
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+  - {integration: pagerduty, operation_type: write}
+  - {integration: datadog, operation_type: write}
+
+skills:
+  - ./skills:co-firing-correlation
+
+evals:
+  - ./evals:page-routing-accuracy
+  - ./evals:root-cause-grouping
+
+returns:
+  alert_count: {type: string, required: true}
+  services: string
+  cause_service: {type: string, required: true}
+  routed_to: {type: string, required: true}
+  pages: string
+  noise:
+    type: string
+    enum: [none, flagged, tuned]
+  summary: {type: string, required: true}
+  action: string

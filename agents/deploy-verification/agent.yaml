@@ -1,0 +1,37 @@
+apiVersion: agents.autoheal.ai/v1
+name: deploy-verification
+icon: seal-check
+
+description: >-
+  After each production deploy, compares error rate, latency and SLO burn with
+  the pre-deploy baseline and the same hour last week. On a regression it can
+  attribute to the change, it pages the owner and opens a revert PR.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: medium
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+  - {integration: pagerduty, operation_type: write}
+  - {integration: github, operation_type: write}
+
+skills:
+  - ./skills:deploy-regression-attribution
+
+evals:
+  - ./evals:deploy-verdict-correctness
+  - ./evals:regression-attribution
+
+returns:
+  verdict:
+    type: string
+    enum: [regression, clean, inconclusive]
+    required: true
+  service: {type: string, required: true}
+  version: {type: string, required: true}
+  summary: {type: string, required: true}
+  action: string

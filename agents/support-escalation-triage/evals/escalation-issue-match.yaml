@@ -1,0 +1,17 @@
+name: Escalation issue match
+description: >-
+  The ticket is matched to the issue that actually caused this customer's failure,
+  or correctly called new, and the workaround in the reply draft works for this customer.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: matched
+  prompt: >-
+    How well do the matched issue and the drafted workaround agree with what engineering
+    confirmed caused this customer's failure, counting a workaround for a different
+    issue as a serious miss?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

@@ -1,0 +1,18 @@
+name: Scorecard pass at creation
+description: >-
+  The scaffold the agent leaves behind passes the six new-service scorecard rules
+  at its first scoring, and the report states each rule with the evidence behind its
+  value.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: compliant
+  prompt: >-
+    What fraction of the six new-service scorecard rules (CI, sized deployment, monitors
+    and SLO as code, pager, catalog entry, CODEOWNERS) does the scaffold pass after
+    the agent's change, with each rule stated and its evidence cited in the report?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

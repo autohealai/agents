@@ -1,0 +1,12 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: Alert Triage
+category: sre
+summary: When a new alert group fires, links the alerts that fired alongside it through the service dependency graph and pages the owner of the cause once. Flags noisy monitors and proposes a threshold change.
+trigger: manual
+safety: notify
+requires:
+  integrations:
+  - pagerduty
+  - datadog

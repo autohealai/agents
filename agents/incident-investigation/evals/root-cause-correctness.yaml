@@ -1,0 +1,18 @@
+name: Root cause correctness
+description: >-
+  How much of the root cause the agent reported the incident record and the recovery
+  evidence confirm — the change it names, the mechanism it names, and nothing claimed
+  beyond them.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: identified
+  prompt: >-
+    What fraction of the reported root cause do the incident record and the recovery
+    evidence confirm — the change named, the mechanism named, and nothing asserted
+    beyond them?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

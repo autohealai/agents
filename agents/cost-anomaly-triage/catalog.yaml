@@ -1,0 +1,12 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: Cost Anomaly Triage
+category: cost
+summary: For each daily Vantage cost anomaly, finds the deploy, config change, scaling event or traffic change that caused it, names the owning team, and proposes a fix with its dollar impact, as a pull request when the resource is declared in code.
+trigger: schedule
+safety: propose
+requires:
+  integrations:
+  - github
+  - slack

@@ -1,0 +1,16 @@
+name: Data coverage honesty
+description: >-
+  Figures are bounded to the window the cost data actually covers, and nothing is
+  extrapolated across a gap.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: bounded
+  prompt: >-
+    Does the report state the window its figures cover, and avoid scaling a partial
+    period up to a month?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

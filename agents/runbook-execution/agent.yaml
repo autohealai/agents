@@ -1,0 +1,42 @@
+apiVersion: agents.autoheal.ai/v1
+name: runbook-execution
+icon: list-checks
+
+description: >-
+  When a known alert fires, runs the approved runbook for it once, then
+  checks recovery against the service's SLO for 15 minutes before resolving.
+  If the service has not recovered, it escalates to on-call with a log of
+  every action taken.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: medium
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+  - {integration: aws, operation_type: write}
+  - {integration: pagerduty, operation_type: write}
+  - {integration: slack, operation_type: write}
+  - {integration: jira, operation_type: write}
+
+skills:
+  - ./skills:runbook-recovery-verification
+
+evals:
+  - ./evals:runbook-outcome-correctness
+  - ./evals:recovery-verification
+
+returns:
+  outcome:
+    type: string
+    enum: [resolved, escalated, no_matching_runbook]
+    required: true
+  service: {type: string, required: true}
+  alert: {type: string, required: true}
+  runbook: {type: string, required: true}
+  summary: {type: string, required: true}
+  verification: {type: string, required: true}
+  action_log: string

@@ -1,0 +1,101 @@
+apiVersion: agents.autoheal.ai/v1
+name: release-readiness
+icon: rocket-launch
+
+description: >-
+  Reads a release candidate and its change diff, checks migrations, canary and
+  rollback plan through its own subagents, and returns a ship-or-hold verdict
+  with the blocking risks and the team that owns each one.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: high
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+
+skills:
+  - ./skills:migration-reversibility
+  - ./skills:canary-coverage
+
+# Two private children, and they are split by the KIND OF WORK rather than by
+# the gate. Both of these need a file read or a window computed rather than a
+# dashboard glanced at, and both were being answered by eye in one context
+# that had already formed a view of the release.
+subagents:
+  analyse_migration:
+    agent: ./agents:migration-safety-analyst
+    description: >-
+      Reads ONE migration and reports whether it can be undone and whether
+      anything still reads what it removes. Call once per migration, in
+      parallel.
+  audit_canary:
+    agent: ./agents:canary-evidence-auditor
+    description: >-
+      Reports which of the release's changed paths the canary exercised and
+      which it never reached. Call once, with the full list of changed paths.
+
+evals:
+  - ./evals:verdict-correctness
+  - ./evals:risk-evidence-grounding
+  - ./evals:gate-coverage
+  - ./evals:canary-validity
+  - ./evals:hold-justification
+  - ./evals:owner-attribution
+
+returns:
+  verdict:
+    type: string
+    enum: [ship, hold]
+    required: true
+  summary: {type: string, required: true}
+  blocking_risks:
+    type: array
+    description: >-
+      Risks where shipping produces an outcome that cannot be undone inside
+      the rollback window. These, and only these, decide the verdict.
+    items:
+      type: object
+      additionalProperties: false
+      properties:
+        risk:
+          type: string
+          description: The outcome, not the property of the diff that produces it.
+          required: true
+        owner:
+          type: string
+          description: The team that owns the service the risk is in.
+          required: true
+        evidence:
+          type: string
+          description: The PR, CI run or dashboard panel this rests on.
+        severity:
+          type: string
+          enum: [sev1, sev2, sev3, sev4]
+  advisory_risks:
+    type: array
+    description: >-
+      Real findings that do not block. They are reported and owned; they do
+      not hold a release.
+    items:
+      type: object
+      additionalProperties: false
+      properties:
+        risk:
+          type: string
+          required: true
+        owner:
+          type: string
+          required: true
+        evidence:
+          type: string
+  ship_when:
+    type: array
+    description: >-
+      On a hold, what would turn it into a ship. A hold with no conditions is
+      a veto, and a veto is not a review.
+    items:
+      type: string

@@ -1,0 +1,31 @@
+apiVersion: agents.autoheal.ai/v1
+name: canary-evidence-auditor
+icon: bird
+
+description: >-
+  Decides which of a release's changed paths a canary actually exercised, and
+  which it never reached. Reports coverage; never a verdict on the release.
+
+# One window, one list of paths, one arithmetic check per path, and a report
+# with no prose in it. Benchmarked over the same month of releases: canary-validity
+# within noise, and a run costs about a third of what it did.
+model:
+  name: claude-haiku-4-5
+  max_tokens: 4096
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+
+skills:
+  - ../skills:canary-coverage
+
+returns:
+  window:
+    type: string
+    description: The canary's start, end and traffic share, as observed rather than as planned.
+    required: true
+  covered: {type: array, items: {type: string}, required: true}
+  uncovered: {type: array, items: {type: string}, required: true}
+  finding: {type: string, required: true}

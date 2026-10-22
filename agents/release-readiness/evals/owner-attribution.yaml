@@ -1,0 +1,19 @@
+name: Owner attribution
+description: >-
+  How many of the reported risks name the team that owns the SERVICE the change lands
+  in, rather than the pull request author's team.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: attribution
+  prompt: >-
+    How many of the reported risks name the owning team of the service, resolved through
+    the catalog rather than from the author?
+  scoring:
+    type: categorical
+    labels:
+    - none
+    - some
+    - most
+    - all

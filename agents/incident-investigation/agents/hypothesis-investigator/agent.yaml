@@ -1,0 +1,27 @@
+apiVersion: agents.autoheal.ai/v1
+name: hypothesis-investigator
+icon: magnifying-glass
+
+description: >-
+  Takes one candidate explanation and tries to establish it: pulls the metrics,
+  logs, traces and diffs that would show the mechanism, and reports what it
+  found with the evidence ids attached.
+
+# One hypothesis, a narrow query set and a short report: the routing change
+# that held every eval flat while cutting what a run costs.
+model:
+  name: claude-haiku-4-5
+  max_tokens: 8192
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+
+skills: []
+
+returns:
+  hypothesis: {type: string, required: true}
+  supported: {type: boolean, required: true}
+  findings: {type: array, items: {type: string}, required: true}
+  evidence_ids: string[]

@@ -1,0 +1,37 @@
+apiVersion: agents.autoheal.ai/v1
+name: coding-agent-spend
+icon: code
+
+description: >-
+  Every night, prices the coding agents' token usage by type, compares your
+  repositories on cost per merged PR, and finds where each one's
+  tokens go. It opens the fix as a PR: an ignore rule for the owning team, or
+  a benchmarked settings change for platform engineering.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: medium
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+  - {integration: github, operation_type: write}
+  - {integration: slack, operation_type: write}
+
+skills:
+  - ./skills:coding-spend-attribution
+
+evals:
+  - ./evals:coding-spend-soundness
+  - ./evals:benchmarked-before-proposed
+
+returns:
+  window: {type: string, required: true}
+  focus_repo: {type: string, required: true}
+  spend: {type: string, required: true}
+  cost_per_merged_pr: string
+  summary: {type: string, required: true}
+  recommendation: {type: string, required: true}
+  action: string

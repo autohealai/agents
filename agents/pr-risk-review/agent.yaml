@@ -1,0 +1,39 @@
+apiVersion: agents.autoheal.ai/v1
+name: pr-risk-review
+icon: git-pull-request
+
+description: >-
+  Reviews every pull request against main using the service's tier, incident
+  history, SLO and production traffic, scores its risk from 0 to 100, picks
+  reviewers from the catalog, and checks database migrations against the
+  real table size and write rate.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: medium
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+  - {integration: github, operation_type: write}
+  - {integration: slack, operation_type: write}
+
+skills:
+  - ./skills:production-risk-scoring
+
+evals:
+  - ./evals:review-finding-accuracy
+  - ./evals:risk-context-grounding
+
+returns:
+  recommendation:
+    type: string
+    enum: [merge, merge_after_nits, changes_requested]
+    required: true
+  repository: {type: string, required: true}
+  pull_request: {type: string, required: true}
+  summary: {type: string, required: true}
+  risk_score: {type: string, required: true}
+  reviewers: string

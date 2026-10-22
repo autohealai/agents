@@ -1,0 +1,36 @@
+apiVersion: agents.autoheal.ai/v1
+name: migration-safety-analyst
+icon: database
+
+description: >-
+  Reads ONE migration and answers two questions about it: can it be undone, and
+  is anything still reading what it removes.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 4096
+  thinking: high
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+
+skills:
+  - ../skills:migration-reversibility
+
+returns:
+  reversible:
+    type: boolean
+    description: Whether the migration has a down path that restores the data, not just the shape.
+    required: true
+  still_read:
+    type: boolean
+    description: Whether any live code path still reads what this migration removes or narrows.
+    required: true
+  readers:
+    type: array
+    items:
+      type: string
+    description: Each remaining reader as file:line, with how often it runs.
+  finding: {type: string, required: true}

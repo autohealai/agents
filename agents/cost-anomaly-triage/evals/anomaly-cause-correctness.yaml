@@ -1,0 +1,16 @@
+name: Anomaly cause correctness
+description: >-
+  The cause named for the cost anomaly is the one the owning team confirmed on review,
+  and the proposed action follows from it.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: correct
+  prompt: >-
+    How well do the named cause and the proposed action match what the owning team
+    found, counting a change reported as traffic growth as a serious miss?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

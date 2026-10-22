@@ -1,0 +1,18 @@
+name: Migration PR readiness
+description: >-
+  Every pull request the run asks an owner to review builds, starts and passes CI,
+  and says what changed and why. A red pull request left with its owner counts against
+  the run.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: ready
+  prompt: >-
+    How close does the run come to handing owners only pull requests that are green
+    and need no rework from them, counting each red pull request left with an owner
+    of a tier-1 or tier-2 service as a serious miss?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

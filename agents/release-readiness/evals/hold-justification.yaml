@@ -1,0 +1,15 @@
+name: Hold justification
+description: >-
+  A hold names the outcome that cannot be undone inside the rollback window, and says
+  what would turn it into a ship.
+type: judge
+applies_to: hold-verdict
+sampling:
+  rate: 1.0
+rubrics:
+- name: justified
+  prompt: >-
+    Does the hold rest on an outcome that survives a rollback, rather than on a rule
+    having tripped, and does it carry conditions the owning team could act on?
+  scoring:
+    type: boolean

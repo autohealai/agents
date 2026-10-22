@@ -1,0 +1,18 @@
+name: Scorecard fix actionability
+description: >-
+  Every failing rule ends in something its owning team can act on: the change to make,
+  where to make it, and who reviews it. A ticket that only restates the failure does
+  not count.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: actionable
+  prompt: >-
+    What fraction of the failing rules in this sweep end in a concrete change routed
+    to the owning team, counting a target or fix the service cannot meet as no fix
+    at all?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

@@ -1,0 +1,17 @@
+name: Canary validity
+description: >-
+  The canary result is treated as evidence about the paths it exercised, in the window
+  it ran, at the share it took — and about nothing else, in either direction.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: read_correctly
+  prompt: >-
+    Does the review treat the canary as evidence only about what it exercised — neither
+    reading green as safety for uncovered paths, nor reading an uncovered path as
+    a finding in its own right?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

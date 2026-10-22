@@ -1,0 +1,18 @@
+name: SLO target grounding
+description: >-
+  A proposed SLO states the window, the observed level and the worst 7-day window
+  it was derived from, sits below what the service has done, and says what share of
+  the budget the service spends today.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: grounded
+  prompt: >-
+    How fully is each proposed SLO target and threshold derived from the service's
+    own measured history, with the window, the observed levels and the budget spend
+    stated?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

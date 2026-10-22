@@ -1,0 +1,18 @@
+name: Reminder precision
+description: >-
+  Each reminder goes to the one person whose move it is, inside their working hours;
+  pull requests that are fresh or moving are left alone; a pull request nobody was
+  asked to review gets one named suggestion.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: precise
+  prompt: >-
+    Of the reminders the run sent or scheduled and the pull requests it left alone,
+    what fraction were right: the person whose turn it was, inside their working hours,
+    on a pull request that was actually waiting?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

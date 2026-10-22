@@ -1,0 +1,96 @@
+apiVersion: agents.autoheal.ai/v1
+name: cloud-cost-optimization
+icon: piggy-bank
+
+description: >-
+  Starts from the bill rather than the resource list, attributes each of the
+  largest lines to the service and team that caused it, and only then looks for
+  what could change.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: high
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+
+skills:
+  - ./skills:saving-risk-framing
+  - ./skills:nat-gateway-attribution
+
+# Two private children with different shapes. The attributor is a FAN — one
+# call per bill line, each in its own context, because a line's cause is a
+# property of that line and reading five in a row makes the fifth look like
+# the fourth. The validator runs ONCE, at the end, over the whole set.
+subagents:
+  attribute_spend:
+    agent: ./agents:spend-attributor
+    description: >-
+      Works out which service and team actually caused ONE bill line, from
+      flow rather than from the line's name. Call once per line, in parallel.
+  validate_savings:
+    agent: ./agents:savings-validator
+    description: >-
+      Argues against the whole set of proposed savings and reports the total
+      that would actually be realised. Call once, after the proposals exist.
+
+evals:
+  - ./evals:attribution-correctness
+  - ./evals:saving-accuracy
+  - ./evals:risk-statement-completeness
+  - ./evals:data-coverage-honesty
+  - ./evals:recommendation-restraint
+  - ./evals:priority-agreement
+
+returns:
+  summary: {type: string, required: true}
+  period:
+    type: string
+    description: The billing window these figures cover.
+  opportunities:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      properties:
+        change:
+          type: string
+          required: true
+        monthly_saving_usd:
+          type: number
+          required: true
+        risk:
+          type: string
+          enum: [low, medium, high]
+          required: true
+        risk_note:
+          type: string
+          description: What would have to happen for this change to hurt, and how you would know.
+        owner:
+          type: string
+          required: true
+        line:
+          type: string
+          description: The bill line this saving comes out of.
+    required: true
+  declined:
+    type: array
+    description: >-
+      Savings that exist and should not be taken, with the reason. A report
+      with none of these has not looked hard enough.
+    items:
+      type: object
+      additionalProperties: false
+      properties:
+        change:
+          type: string
+          required: true
+        monthly_saving_usd:
+          type: number
+          required: true
+        why_not:
+          type: string
+          required: true

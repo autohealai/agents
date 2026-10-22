@@ -1,0 +1,20 @@
+name: Scaffold handover completeness
+description: >-
+  The repository handed to the requesting team can build, deploy, be watched and page
+  its owner on its first day, and the handover says plainly what it does and does
+  not have.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: complete
+  prompt: >-
+    What fraction of what a new service needs on its first day (green CI, sized pods,
+    monitors and an SLO, a pager, an owning team and tier in the catalog, CODEOWNERS)
+    is in place when the agent hands the repository over, counting a TODO left in
+    a required file as missing and a handover that calls an incomplete repository
+    ready as a serious miss?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

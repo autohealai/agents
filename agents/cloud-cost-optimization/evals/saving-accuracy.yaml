@@ -1,0 +1,16 @@
+name: Saving accuracy
+description: >-
+  The reported total is a figure a month could actually produce: each saving resolves
+  to the line it comes out of, and no two proposals are paid for out of the same spend.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: realisable
+  prompt: >-
+    Does the reported total equal what the proposals would together remove, with any
+    overlapping pair counted once and named?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

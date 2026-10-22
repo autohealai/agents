@@ -1,0 +1,17 @@
+name: Page routing accuracy
+description: >-
+  The page reached the team that owned the cause of the alerts, once, and no other
+  team was paged for the same cause.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: routed
+  prompt: >-
+    How well does the routing match what on-call concluded: was the owner of the cause
+    paged, once, and were the owners of services that were only affected spared a
+    page? Count a page that missed the owner of the cause as a serious miss.
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

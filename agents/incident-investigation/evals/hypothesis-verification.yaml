@@ -1,0 +1,16 @@
+name: Hypothesis verification
+description: >-
+  Competing explanations were actually tested, and each rejection names the evidence
+  that ruled it out.
+type: judge
+sampling:
+  rate: 1.0
+rubrics:
+- name: tested
+  prompt: >-
+    Were alternative explanations tested against disconfirming evidence, and does
+    each rejection cite what ruled it out?
+  scoring:
+    type: numeric
+    min: 0
+    max: 1

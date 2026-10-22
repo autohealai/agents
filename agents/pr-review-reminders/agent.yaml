@@ -1,0 +1,34 @@
+apiVersion: agents.autoheal.ai/v1
+name: pr-review-reminders
+icon: alarm
+
+description: >-
+  Keeps one Slack thread per open pull request in your organisation with its review
+  status and who it is waiting on. Reminds only that person, reviewer or
+  author, during their working hours, and suggests a reviewer from CODEOWNERS
+  and the catalog when nobody was requested.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 8192
+  thinking: medium
+
+instructions: ./instructions.md
+
+tools:
+  - operation_type: read
+  - {integration: slack, operation_type: write}
+
+skills:
+  - ./skills:review-turn-tracking
+
+evals:
+  - ./evals:review-reminder-fit
+  - ./evals:reminder-precision
+
+returns:
+  summary: {type: string, required: true}
+  open_prs: {type: string, required: true}
+  reminders: {type: string, required: true}
+  suggestions: string
+  waiting_longest: string

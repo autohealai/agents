@@ -1,0 +1,11 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: PR Review Reminders
+category: code-review
+summary: Keeps one Slack thread per open pull request in your organisation with its review status and who it is waiting on. Reminds only that person, reviewer or author, during their working hours, and suggests a reviewer from CODEOWNERS and the catalog when nobody was requested.
+trigger: manual
+safety: notify
+requires:
+  integrations:
+  - slack

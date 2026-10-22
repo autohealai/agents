@@ -1,0 +1,12 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: Support Escalation Triage
+category: sre
+summary: When support escalates a Pylon ticket to engineering, replays the customer's own session, errors and logs, and matches them to a known issue by stack trace and release. Drafts the reply for support, or files a reproducible Jira bug to the owning team when the failure is new.
+trigger: manual
+safety: propose
+requires:
+  integrations:
+  - jira
+  - slack

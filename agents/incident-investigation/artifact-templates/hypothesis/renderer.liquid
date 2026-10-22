@@ -1,0 +1,374 @@
+{%- comment -%}
+  Renderer for hypothesis artifacts (schema.json beside this file), drawn like
+  the app's investigation Root Cause view: one card with the verdict and
+  confidence, the causal chain as a timeline, and the fixes as cards that open
+  one at a time. What that view keeps elsewhere (the mechanism, why the
+  hypothesis was proposed, the review) sits in collapsed sections at the
+  bottom; the investigator's summary, which that view leaves out, is left out.
+
+  The app fills this with the artifact's JSON as `data` and shows the result in
+  a frame that runs no scripts, with style kit v1 in front of it: the app's
+  fonts, the --ak-* colours (they follow the app's light or dark theme) and the
+  ak-* classes. Every {{ }} is HTML-escaped; `| raw` below only ever prints the
+  icons and rows captured in this file.
+
+  `artifact.evidence_url` is the address of the run that made the artifact,
+  ending in `toolCall=`: an evidence id without its `#` appended to it opens
+  that tool call in the run, in a new tab. Without it, evidence is plain text.
+
+  A record is written in stages by several agents (planner, investigator,
+  reviewer, fix planner), so anything past the required fields may be missing:
+  each section checks before it shows. The confidence cut-offs are the app's
+  confidence badge's: 60% and up is High, 40% and up Medium.
+{%- endcomment -%}
+<style>
+:root{--hy-shadow:0 1px 2px 0 color-mix(in srgb,var(--ak-shadow-tint) 5%,transparent),inset 0 0 0 1px color-mix(in srgb,var(--ak-shadow-tint) 6%,transparent);--hy-text:color-mix(in srgb,var(--ak-fg) 90%,transparent)}
+summary{cursor:pointer;list-style:none}
+summary::-webkit-details-marker{display:none}
+.hy-i{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.hy-i-fill{fill:currentColor;stroke:none}
+.hy-i-fill .hy-i-cut{fill:var(--ak-surface)}
+.hy-caret{color:var(--ak-muted);transition:transform .2s}
+details[open]>summary .hy-caret{transform:rotate(180deg)}
+.hy-page{padding:2px 2px 6px}
+.hy-card{padding:20px 32px 40px;border-radius:16px;background:var(--ak-surface);box-shadow:var(--hy-shadow)}
+.hy-card[data-state=rejected]{background:color-mix(in srgb,var(--ak-neutral-bg) 40%,var(--ak-surface))}
+.hy-title{font-size:18px;line-height:1.375;letter-spacing:-.015em;text-wrap:pretty}
+.hy-card[data-state=rejected] .hy-title{color:var(--ak-muted)}
+.hy-meta{margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font-size:12px;color:var(--ak-muted)}
+.hy-seg{display:inline-flex;align-items:center}
+.hy-seg+.hy-seg::before{content:"·";margin-right:12px;color:var(--ak-border-strong)}
+.hy-confidence{gap:6px;font-weight:500;cursor:default}
+.hy-bars{display:inline-flex;align-items:flex-end;gap:2px}
+.hy-bars>span{display:block;width:4px;border-radius:2px;background:color-mix(in srgb,var(--ak-muted) 25%,transparent)}
+.hy-bars>span:nth-child(1){height:6px}
+.hy-bars>span:nth-child(2){height:8px}
+.hy-bars>span:nth-child(3){height:10px}
+.hy-bars[data-level=high]>span{background:var(--ak-success-mark)}
+.hy-bars[data-level=medium]>span:nth-child(-n+2){background:var(--ak-warning-mark)}
+.hy-bars[data-level=low]>span:first-child{background:var(--ak-muted)}
+.ak-badge.hy-pill{gap:6px;padding:4px 10px;border-color:transparent;border-radius:999px;font-weight:600}
+.ak-badge.hy-tag{padding:2px 10px;border-color:transparent;border-radius:999px}
+.hy-tag .hy-i{width:12px;height:12px;stroke-width:2}
+.hy-desc{margin-top:20px;line-height:1.625;color:var(--hy-text);text-wrap:pretty}
+.hy-note{margin-top:12px;font-size:13px;line-height:1.5;color:var(--ak-muted)}
+.hy-note strong{font-weight:600;color:var(--ak-fg)}
+.hy-questions{margin-top:16px}
+.hy-questions>summary{display:flex;align-items:flex-start;gap:10px;line-height:1.625;color:var(--ak-muted)}
+.hy-questions>summary strong{font-weight:600;color:var(--ak-fg)}
+.hy-questions>summary .hy-i{margin-top:4px}
+.hy-questions>summary .hy-i-fill{width:16px;height:16px;margin-top:3px;color:var(--ak-link)}
+.hy-questions-body{margin:12px 0 0 26px;display:flex;flex-direction:column;gap:12px}
+.hy-qlist{display:flex;flex-direction:column;gap:10px}
+.hy-q{font-weight:500}
+.hy-section{margin-top:32px}
+.hy-section>h2{margin-bottom:20px}
+.hy-fixes>h2{margin-bottom:16px}
+.hy-chain{list-style:none;margin:0;padding:0}
+.hy-step{display:flex;gap:20px}
+.hy-rail{flex:none;width:24px;display:flex;flex-direction:column;align-items:center}
+.hy-rail::after{content:"";flex:1;width:1px;margin-top:8px;background:var(--ak-border)}
+.hy-step:last-child .hy-rail::after{display:none}
+.hy-marker{width:24px;height:24px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--ak-fg);color:var(--ak-bg);font:600 12px/1 "JetBrains Mono",monospace}
+.hy-step-body{flex:1;min-width:0;padding-bottom:28px}
+.hy-step:last-child .hy-step-body{padding-bottom:0}
+.hy-step-body>p{line-height:1.625}
+.hy-verdict{margin-top:12px}
+.hy-gap{margin-top:8px;padding-left:10px;border-left:2px solid var(--ak-warning-border);font-size:13px;line-height:1.5;color:var(--ak-muted)}
+.hy-label{margin-bottom:8px}
+.hy-evidence-block{margin-top:16px}
+.hy-evidence{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.hy-ev{display:flex;align-items:flex-start;gap:8px;line-height:1.375;color:var(--hy-text);overflow-wrap:anywhere}
+.hy-ev .hy-i{margin-top:2px;color:var(--ak-muted)}
+a.hy-ev{color:var(--ak-link)}
+a.hy-ev:hover{text-decoration:none}
+a.hy-ev:hover>span{text-decoration:underline;text-underline-offset:2px}
+.hy-ev-id{flex:none;font:500 11px/1.4 "JetBrains Mono",monospace;color:var(--ak-muted)}
+a.hy-ev-id{color:var(--ak-link)}
+.hy-more{margin-top:8px}
+.hy-more>summary{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--ak-muted)}
+.hy-more>summary:hover{color:var(--ak-fg)}
+.hy-more[open] .hy-more-show,.hy-more:not([open]) .hy-more-hide{display:none}
+.hy-more>.hy-evidence{margin-top:6px}
+.hy-limit{margin-top:12px;display:flex;align-items:flex-start;gap:6px;font-size:13px;line-height:1.5;color:var(--ak-muted)}
+.hy-limit+.hy-limit{margin-top:4px}
+.hy-limit .hy-i{margin-top:2px}
+.hy-limit strong{font-weight:500}
+.hy-fix-list{display:flex;flex-direction:column;gap:10px}
+.hy-fix{border-radius:12px;background:var(--ak-surface);box-shadow:var(--hy-shadow)}
+.hy-fix>summary{display:flex;align-items:flex-start;gap:12px;padding:14px 16px}
+.hy-fix-num{flex:none;width:24px;height:24px;margin-top:1px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--ak-neutral-bg);color:var(--ak-muted);font:600 12px/1 "JetBrains Mono",monospace}
+.hy-fix-title{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.hy-fix-title strong{font-weight:600}
+.hy-fix-teaser{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;color:var(--ak-muted)}
+.hy-fix[open] .hy-fix-teaser{display:none}
+.hy-tags{flex:none;max-width:50%;padding-top:1px;display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:6px}
+.hy-tags>.hy-caret{width:16px;height:16px}
+.hy-fix-body{padding:0 16px 16px;display:flex;flex-direction:column;gap:16px}
+.hy-fix-body>p{line-height:1.625;color:var(--hy-text)}
+.hy-impact{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--ak-success-border);border-radius:8px;background:color-mix(in srgb,var(--ak-success-bg) 55%,transparent)}
+.hy-impact p{line-height:1.625;color:var(--hy-text)}
+.hy-impact strong{font-weight:600;color:var(--ak-fg)}
+.hy-impact .hy-i,.hy-checks .hy-i{width:16px;height:16px;margin-top:3px;color:var(--ak-success-fg)}
+.hy-term{border-radius:8px;background:var(--ak-terminal-bg);overflow:hidden}
+.hy-term-head{display:flex;align-items:center;gap:6px;padding:7px 12px;border-bottom:1px solid color-mix(in srgb,var(--ak-terminal-muted) 30%,transparent);font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ak-terminal-muted)}
+.hy-term pre{max-height:256px;overflow:auto;padding:10px 12px;border:0;border-radius:0;white-space:pre;font-size:12px;line-height:1.625;color:var(--ak-terminal-fg)}
+.hy-term code{display:block}
+.hy-term code::before{content:"$";margin-right:8px;color:var(--ak-terminal-muted)}
+.hy-term code.hy-comment{color:var(--ak-terminal-muted)}
+.hy-term code.hy-comment::before{content:none}
+.hy-detail-label{display:flex;align-items:center;gap:6px}
+.hy-checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.hy-checks li{display:flex;align-items:flex-start;gap:8px;line-height:1.625;color:var(--hy-text)}
+.hy-rollback>summary{display:inline-flex;align-items:center;gap:6px;font-weight:500;color:var(--ak-muted)}
+.hy-rollback>summary:hover{color:var(--ak-fg)}
+.hy-rollback>.hy-term{margin-top:8px}
+.hy-extras{margin-top:36px;border-top:1px solid var(--ak-border)}
+.hy-extra{border-bottom:1px solid var(--ak-border)}
+.hy-extra>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0}
+.hy-extra>summary h2{font-size:14px}
+.hy-extra-body{padding-bottom:18px;display:flex;flex-direction:column;gap:14px}
+.hy-prose{white-space:pre-line;line-height:1.65;color:var(--hy-text);text-wrap:pretty}
+.hy-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.hy-list li{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;line-height:1.5}
+@media (max-width:640px){
+.hy-card{padding:16px 20px 28px}
+.hy-fix>summary{flex-wrap:wrap}
+.hy-tags{order:3;max-width:none;width:100%;padding-left:36px;justify-content:flex-start}
+}
+</style>
+{%- capture i_check -%}<svg class="hy-i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25"/><path d="m5.4 8.2 1.8 1.8 3.4-3.6"/></svg>{%- endcapture -%}
+{%- capture i_warn -%}<svg class="hy-i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25"/><path d="M8 4.9v3.5M8 11.1v.01"/></svg>{%- endcapture -%}
+{%- capture i_alert -%}<svg class="hy-i" viewBox="0 0 16 16" aria-hidden="true"><path d="M7.1 2.6a1 1 0 0 1 1.8 0l5.4 9.9a1 1 0 0 1-.9 1.5H2.6a1 1 0 0 1-.9-1.5z"/><path d="M8 6.2v3M8 11.4v.01"/></svg>{%- endcapture -%}
+{%- capture i_caret -%}<svg class="hy-i hy-caret" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>{%- endcapture -%}
+{%- capture i_chat -%}<svg class="hy-i hy-i-fill" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.75a6.25 6.25 0 0 0-5.47 9.27l-.74 2.62a.5.5 0 0 0 .6.6l2.6-.74A6.25 6.25 0 1 0 8 1.75Z"/><circle class="hy-i-cut" cx="5.25" cy="8" r=".9"/><circle class="hy-i-cut" cx="8" cy="8" r=".9"/><circle class="hy-i-cut" cx="10.75" cy="8" r=".9"/></svg>{%- endcapture -%}
+{%- capture i_terminal -%}<svg class="hy-i" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.5"/><path d="m4.5 6.5 2 1.5-2 1.5M8.5 9.5h3"/></svg>{%- endcapture -%}
+{%- capture i_list -%}<svg class="hy-i" viewBox="0 0 16 16" aria-hidden="true"><path d="M7.5 4h6M7.5 8h6M7.5 12h6M2.5 4l1 1 2-2M2.5 8l1 1 2-2M2.5 12l1 1 2-2"/></svg>{%- endcapture -%}
+{%- capture i_undo -%}<svg class="hy-i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5V7h3.5"/><path d="M2.9 7A5.5 5.5 0 1 1 4 11.8"/></svg>{%- endcapture -%}
+{%- capture i_bolt -%}<svg class="hy-i" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8z"/></svg>{%- endcapture -%}
+{%- capture i_wrench -%}<svg class="hy-i" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.4 2.2a3.4 3.4 0 0 0-4 4.4L2.3 10.7a1.3 1.3 0 0 0 1.9 1.9l4.1-4.1a3.4 3.4 0 0 0 4.4-4L10.9 6.3 9.6 6l-.3-1.3z"/></svg>{%- endcapture -%}
+{%- capture i_prompt -%}<svg class="hy-i" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 4.5 3.5 3.5L3 11.5M8 11.5h5"/></svg>{%- endcapture -%}
+{%- capture i_info -%}<svg class="hy-i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25"/><path d="M8 7.4v3.6M8 5v.01"/></svg>{%- endcapture -%}
+{%- assign review = data.review -%}
+{%- assign chain = data.causal_chain -%}
+{%- assign questions = data.questions -%}
+{%- assign fixes = data.mitigations -%}
+{%- assign attempts = review.falsification_attempts -%}
+{%- assign resolutions = review.limitation_resolution_attempts -%}
+{%- assign confidence = data.prior_confidence -%}
+{%- assign confidence_source = "before investigation" -%}
+{%- if data.confidence != nil -%}{%- assign confidence = data.confidence -%}{%- assign confidence_source = "the investigator's own estimate" -%}{%- endif -%}
+{%- if review.confidence != nil -%}{%- assign confidence = review.confidence -%}{%- assign confidence_source = "checked in review" -%}{%- endif -%}
+{%- assign rejected = false -%}
+{%- if review.outcome == "rejected" -%}{%- assign rejected = true -%}{%- endif -%}
+<main class="hy-page">
+<article class="hy-card"{% if rejected %} data-state="rejected"{% endif %}>
+  <h1 class="hy-title">{{ data.name | default: data.slug | default: "Untitled hypothesis" }}</h1>
+  <div class="hy-meta">
+    {%- case data.status -%}
+      {%- when "proposed" -%}<span class="hy-seg">Proposed</span>
+      {%- when "investigating" -%}<span class="hy-seg">Under investigation</span>
+      {%- when "investigated" -%}<span class="hy-seg">Investigated</span>
+      {%- when "withdrawn" -%}<span class="hy-seg">Withdrawn</span>
+      {%- else -%}{%- if data.status %}<span class="hy-seg">{{ data.status | capitalize }}</span>{% endif -%}
+    {%- endcase -%}
+    {%- if data.category %}<span class="hy-seg">{{ data.category | replace: "_", " " | capitalize }}</span>{% endif -%}
+    {%- if confidence != nil -%}
+      {%- assign percent = confidence | times: 100 | round -%}
+      {%- if confidence >= 0.6 -%}{%- assign level = "high" -%}{%- elsif confidence >= 0.4 -%}{%- assign level = "medium" -%}{%- else -%}{%- assign level = "low" -%}{%- endif -%}
+      <span class="hy-seg hy-confidence" title="{{ percent }}% confidence, {{ confidence_source }}"><span class="hy-bars" data-level="{{ level }}" aria-hidden="true"><span></span><span></span><span></span></span>{{ level | capitalize }} confidence</span>
+    {%- endif -%}
+    {%- if review -%}
+      {%- if rejected -%}<span class="ak-badge hy-pill">Ruled out in review</span>
+      {%- elsif review.outcome == "active" and review.is_primary == true -%}<span class="ak-badge hy-pill" data-tone="success">{{ i_check | raw }}Primary root cause</span>
+      {%- elsif review.outcome == "active" -%}<span class="ak-badge hy-pill" data-tone="info">Survived review</span>
+      {%- endif -%}
+      {%- if review.needs_deeper_work == true %}<span class="ak-badge hy-pill" data-tone="warning">Sent back for deeper work</span>{% endif -%}
+    {%- endif -%}
+    {%- if data.needs_human_input == true %}<span class="ak-badge hy-pill" data-tone="warning">Needs human input</span>{% endif -%}
+  </div>
+
+  {%- if data.description %}<p class="hy-desc">{{ data.description }}</p>{% endif -%}
+
+  {%- if rejected and review.rejection_basis %}<p class="hy-note"><strong>Why it was ruled out:</strong> {{ review.rejection_basis }}</p>{% endif -%}
+
+  {%- if questions.size > 0 -%}
+  <details class="hy-questions">
+    <summary>{{ i_chat | raw }}<span><strong>{{ questions.size }} open {% if questions.size == 1 %}question</strong> remains — answering it{% else %}questions</strong> remain — answering them{% endif %} could sharpen this hypothesis.</span>{{ i_caret | raw }}</summary>
+    <div class="hy-questions-body">
+      {%- if data.human_input_reasoning %}<p class="hy-prose">{{ data.human_input_reasoning }}</p>{% endif -%}
+      <ol class="hy-qlist">{% for question in questions %}<li><p class="hy-q">{{ question.question | default: "Untitled question" }}</p>{% if question.context %}<p class="ak-muted">Would change: {{ question.context }}</p>{% endif %}</li>{% endfor %}</ol>
+    </div>
+  </details>
+  {%- elsif data.needs_human_input == true and data.human_input_reasoning -%}
+  <p class="hy-note"><strong>Needs human input:</strong> {{ data.human_input_reasoning }}</p>
+  {%- endif -%}
+
+  {%- if chain.size > 0 -%}
+  <section class="hy-section">
+    <h2>How it happened</h2>
+    <ol class="hy-chain">
+      {%- for step in chain -%}
+      {%- assign step_review = nil -%}
+      {%- if review -%}{%- assign step_review = review.step_reviews | where: "step_id", step.step_id | first -%}{%- endif -%}
+      <li class="hy-step">
+        <div class="hy-rail"><span class="hy-marker">{{ forloop.index }}</span></div>
+        <div class="hy-step-body">
+          <p>{{ step.step }}</p>
+          {%- if review -%}
+          <div class="hy-verdict">
+            {%- capture checked_by %}{% if step_review.verification_evidence_id %} title="Checked against {{ step_review.verification_evidence_id }}"{% endif %}{% endcapture -%}
+            {%- case step_review.classification -%}
+              {%- when "VERIFIED" -%}<span class="ak-badge hy-pill" data-tone="success"{{ checked_by | raw }}>{{ i_check | raw }}Verified</span>
+              {%- when "PARTIALLY_VERIFIED" -%}<span class="ak-badge hy-pill" data-tone="warning"{{ checked_by | raw }}>{{ i_warn | raw }}Partially verified</span>
+              {%- when "CONTRADICTED" -%}<span class="ak-badge hy-pill" data-tone="warning"{{ checked_by | raw }}>{{ i_warn | raw }}Contradicted</span>
+              {%- else -%}<span class="ak-badge hy-pill">{{ step_review.classification | default: "Not reviewed" | replace: "_", " " | capitalize }}</span>
+            {%- endcase -%}
+          </div>
+          {%- if step_review.limitation_gap %}<p class="hy-gap">{{ step_review.limitation_gap }}</p>{% endif -%}
+          {%- endif -%}
+          {%- if step.evidence.size > 0 -%}
+          {%- comment -%} Five rows, then the rest behind "Show N more". {%- endcomment -%}
+          <div class="hy-evidence-block">
+            <div class="ak-overline hy-label">Evidence · {{ step.evidence.size }}</div>
+            <ul class="hy-evidence">
+              {%- for item in step.evidence -%}
+              {%- if forloop.index == 6 -%}</ul><details class="hy-more"><summary>{{ i_caret | raw }}<span class="hy-more-show">Show {{ step.evidence.size | minus: 5 }} more</span><span class="hy-more-hide">Show less</span></summary><ul class="hy-evidence">{%- endif -%}
+              {%- capture row -%}{{ i_prompt | raw }}<span>{{ item.description }}</span>{%- endcapture -%}
+              <li>
+                {%- if artifact.evidence_url and item.evidence_id -%}<a class="hy-ev" href="{{ artifact.evidence_url }}{{ item.evidence_id | remove_first: "#" | url_encode }}" title="Open {{ item.evidence_id }} in the run">{{ row | raw }}</a>
+                {%- else -%}<span class="hy-ev"{% if item.evidence_id %} title="{{ item.evidence_id }}"{% endif %}>{{ row | raw }}</span>{%- endif -%}
+              </li>
+              {%- endfor -%}
+            </ul>{% if step.evidence.size > 5 %}</details>{% endif %}
+          </div>
+          {%- endif -%}
+          {%- for limitation in step.limitations -%}
+          <p class="hy-limit">{{ i_info | raw }}<span><strong>Limitation:</strong> {{ limitation }}</span></p>
+          {%- endfor -%}
+        </div>
+      </li>
+      {%- endfor -%}
+    </ol>
+  </section>
+  {%- endif -%}
+
+  {%- comment -%} Immediate fixes are the mitigating ones; a fix without a type counts as one. {%- endcomment -%}
+  {%- if fixes.size > 0 -%}
+  {%- assign permanent_count = fixes | where: "fix_type", "permanent" | size -%}
+  {%- assign kinds = "mitigating,permanent" | split: "," -%}
+  {%- for kind in kinds -%}
+    {%- if kind == "mitigating" -%}{%- assign count = fixes.size | minus: permanent_count -%}{%- else -%}{%- assign count = permanent_count -%}{%- endif -%}
+    {%- if count == 0 -%}{%- continue -%}{%- endif -%}
+    <section class="hy-section hy-fixes">
+      <h2>{{ kind | capitalize }} fixes</h2>
+      <div class="hy-fix-list">
+        {%- assign number = 0 -%}
+        {%- for fix in fixes -%}
+        {%- if fix.fix_type == "permanent" -%}{%- assign fix_kind = "permanent" -%}{%- else -%}{%- assign fix_kind = "mitigating" -%}{%- endif -%}
+        {%- if fix_kind != kind -%}{%- continue -%}{%- endif -%}
+        {%- assign number = number | plus: 1 -%}
+        <details class="hy-fix" name="fixes">
+          <summary>
+            <span class="hy-fix-num">{{ number }}</span>
+            <span class="hy-fix-title"><strong>{{ fix.title | default: "Untitled fix" }}</strong>{% if fix.description %}<span class="hy-fix-teaser">{{ fix.description }}</span>{% endif %}</span>
+            <span class="hy-tags">
+              {%- case fix.category -%}
+                {%- when "code_optimization" -%}<span class="ak-badge hy-tag" data-tone="info">Code</span>
+                {%- when "observability" -%}<span class="ak-badge hy-tag" data-tone="info">Observability</span>
+                {%- when "configuration" -%}<span class="ak-badge hy-tag" data-tone="info">Configuration</span>
+                {%- when "infrastructure" -%}<span class="ak-badge hy-tag" data-tone="success">Infrastructure</span>
+                {%- else -%}{%- if fix.category %}<span class="ak-badge hy-tag">{{ fix.category | replace: "_", " " | capitalize }}</span>{% endif -%}
+              {%- endcase -%}
+              {%- case fix.fix_type -%}
+                {%- when "immediate" -%}<span class="ak-badge hy-tag" data-tone="info">{{ i_bolt | raw }}Immediate</span>
+                {%- when "permanent" -%}<span class="ak-badge hy-tag">{{ i_wrench | raw }}Permanent</span>
+              {%- endcase -%}
+              {%- case fix.risk_level -%}
+                {%- when "low" -%}<span class="ak-badge hy-tag" data-tone="success">{{ i_check | raw }}Low risk</span>
+                {%- when "medium" -%}<span class="ak-badge hy-tag" data-tone="warning">{{ i_alert | raw }}Medium risk</span>
+                {%- when "high" -%}<span class="ak-badge hy-tag" data-tone="danger">{{ i_alert | raw }}High risk</span>
+              {%- endcase -%}
+              {%- if fix.reversible == false %}<span class="ak-badge hy-tag" data-tone="warning">Not reversible</span>{% endif -%}
+              {{ i_caret | raw }}
+            </span>
+          </summary>
+          <div class="hy-fix-body">
+            {%- if fix.description %}<p>{{ fix.description }}</p>{% endif -%}
+            {%- if fix.expected_impact %}<div class="hy-impact">{{ i_check | raw }}<p><strong>Expected impact</strong> — {{ fix.expected_impact }}</p></div>{% endif -%}
+            {%- if fix.commands.size > 0 -%}
+            <div class="hy-term"><div class="hy-term-head">{{ i_terminal | raw }}Commands</div><pre>{% for command in fix.commands %}{% assign first = command | strip | slice: 0 %}<code{% if first == "#" %} class="hy-comment"{% endif %}>{{ command }}</code>{% endfor %}</pre></div>
+            {%- endif -%}
+            {%- if fix.prerequisites.size > 0 -%}
+            <div><div class="ak-overline hy-label hy-detail-label">{{ i_list | raw }}Prerequisites</div><ul class="hy-checks">{% for prerequisite in fix.prerequisites %}<li>{{ i_check | raw }}<span>{{ prerequisite }}</span></li>{% endfor %}</ul></div>
+            {%- endif -%}
+            {%- if fix.rollback_commands.size > 0 and fix.reversible != false -%}
+            <details class="hy-rollback"><summary>{{ i_undo | raw }}Rollback commands{{ i_caret | raw }}</summary>
+              <div class="hy-term"><div class="hy-term-head">{{ i_terminal | raw }}Rollback</div><pre>{% for command in fix.rollback_commands %}{% assign first = command | strip | slice: 0 %}<code{% if first == "#" %} class="hy-comment"{% endif %}>{{ command }}</code>{% endfor %}</pre></div></details>
+            {%- endif -%}
+          </div>
+        </details>
+        {%- endfor -%}
+      </div>
+    </section>
+  {%- endfor -%}
+  {%- endif -%}
+
+  {%- comment -%} A record with no causal chain yet has little else to show, so its background opens. {%- endcomment -%}
+  {%- assign open_background = true -%}
+  {%- if chain.size > 0 -%}{%- assign open_background = false -%}{%- endif -%}
+  {%- assign has_review_detail = false -%}
+  {%- if review.review_summary or review.human_input_reasoning or review.uncovered_cause or attempts.size > 0 or resolutions.size > 0 -%}{%- assign has_review_detail = true -%}{%- endif -%}
+  {%- if data.mechanism or data.supporting_signals.size > 0 or data.investigate_by.size > 0 or has_review_detail -%}
+  <section class="hy-extras">
+    {%- if data.mechanism -%}
+    <details class="hy-extra"{% if open_background %} open{% endif %}><summary><h2>Mechanism</h2>{{ i_caret | raw }}</summary>
+      <div class="hy-extra-body"><p class="hy-prose">{{ data.mechanism }}</p></div></details>
+    {%- endif -%}
+    {%- if data.supporting_signals.size > 0 or data.investigate_by.size > 0 -%}
+    <details class="hy-extra"{% if open_background %} open{% endif %}><summary><h2>Why it was proposed</h2>{{ i_caret | raw }}</summary>
+      <div class="hy-extra-body">
+        {%- if data.supporting_signals.size > 0 -%}
+        <div><div class="ak-overline hy-label">Supporting signals</div><ul>{% for signal in data.supporting_signals %}<li>{{ signal }}</li>{% endfor %}</ul></div>
+        {%- endif -%}
+        {%- if data.investigate_by.size > 0 -%}
+        <div><div class="ak-overline hy-label">Checks to run</div><ul>{% for check in data.investigate_by %}<li>{{ check }}</li>{% endfor %}</ul></div>
+        {%- endif -%}
+      </div></details>
+    {%- endif -%}
+    {%- if has_review_detail -%}
+    <details class="hy-extra"><summary><h2>Review</h2>{{ i_caret | raw }}</summary>
+      <div class="hy-extra-body">
+        {%- if review.review_summary -%}
+        <div><div class="ak-overline hy-label">Reviewer's reasoning</div><p class="hy-prose">{{ review.review_summary }}</p></div>
+        {%- endif -%}
+        {%- if review.human_input_reasoning -%}
+        <div><div class="ak-overline hy-label">Reviewer asks for human input</div><p class="hy-prose">{{ review.human_input_reasoning }}</p></div>
+        {%- endif -%}
+        {%- if review.uncovered_cause -%}
+        <div><div class="ak-overline hy-label">Still unexplained</div><p class="hy-prose">{{ review.uncovered_cause }}</p></div>
+        {%- endif -%}
+        {%- if attempts.size > 0 -%}
+        <div><div class="ak-overline hy-label">Falsification attempts · {{ attempts.size }}</div>
+          <ul class="hy-list">
+            {%- for attempt in attempts -%}
+            {%- case attempt.outcome -%}{%- when "survived" -%}{%- assign tone = "success" -%}{%- when "falsified" -%}{%- assign tone = "danger" -%}{%- else -%}{%- assign tone = "neutral" -%}{%- endcase -%}
+            <li><span class="ak-badge hy-tag" data-tone="{{ tone }}">{{ attempt.outcome | default: "no outcome" | replace: "_", " " | capitalize }}</span><span>{{ attempt.falsification_target }}</span>{% if attempt.evidence_id and artifact.evidence_url %}<a class="hy-ev-id" href="{{ artifact.evidence_url }}{{ attempt.evidence_id | remove_first: "#" | url_encode }}" title="Open {{ attempt.evidence_id }} in the run">{{ attempt.evidence_id }}</a>{% elsif attempt.evidence_id %}<span class="hy-ev-id">{{ attempt.evidence_id }}</span>{% endif %}</li>
+            {%- endfor -%}
+          </ul></div>
+        {%- endif -%}
+        {%- if resolutions.size > 0 -%}
+        <div><div class="ak-overline hy-label">Stated limitations, re-probed · {{ resolutions.size }}</div>
+          <ul class="hy-list">
+            {%- for resolution in resolutions -%}
+            {%- case resolution.outcome -%}{%- when "resolved" -%}{%- assign tone = "success" -%}{%- when "confirmed_gap" -%}{%- assign tone = "warning" -%}{%- else -%}{%- assign tone = "neutral" -%}{%- endcase -%}
+            <li><span class="ak-badge hy-tag" data-tone="{{ tone }}">{{ resolution.outcome | default: "no outcome" | replace: "_", " " | capitalize }}</span><span>{{ resolution.limitation }}</span>{% if resolution.evidence_id and artifact.evidence_url %}<a class="hy-ev-id" href="{{ artifact.evidence_url }}{{ resolution.evidence_id | remove_first: "#" | url_encode }}" title="Open {{ resolution.evidence_id }} in the run">{{ resolution.evidence_id }}</a>{% elsif resolution.evidence_id %}<span class="hy-ev-id">{{ resolution.evidence_id }}</span>{% endif %}</li>
+            {%- endfor -%}
+          </ul></div>
+        {%- endif -%}
+      </div></details>
+    {%- endif -%}
+  </section>
+  {%- endif -%}
+</article>
+</main>

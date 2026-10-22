@@ -1,0 +1,12 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: Deploy Verification
+category: ci-cd
+summary: After each production deploy, compares error rate, latency and SLO burn with the pre-deploy baseline and the same hour last week. On a regression it can attribute to the change, it pages the owner and opens a revert PR.
+trigger: manual
+safety: propose
+requires:
+  integrations:
+  - pagerduty
+  - github

@@ -1,0 +1,11 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: Service Scaffolding
+category: ci-cd
+summary: Creates a repository for a new-service request from the approved (golden-path) template, and checks it against the six scorecard rules before handing it over. Also opens pull requests that move older scaffolds to the current template.
+trigger: manual
+safety: propose
+requires:
+  integrations:
+  - github
