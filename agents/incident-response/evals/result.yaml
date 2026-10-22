@@ -1,0 +1,60 @@
+# What the on-call engineer gets back: a cause, an answer to their question, a
+# label they can trust, facts that match the data, and fixes they can act on.
+# Checking the causal chain step by step is the verifier's job, not this one's.
+schema_version: 1
+name: Result
+description: >-
+  The cause explains the incident or says plainly it could not, the question
+  asked is answered, the confidence label is no higher than verification
+  supports, the facts match the data, and the fixes are specific and safe.
+type: judge
+judged_on: final_answer
+sampling:
+  rate: 1.0
+rubrics:
+  - name: root_cause
+    prompt: |
+      What kind of root cause did the agent report? Read its final answer (its last reply, or the arguments of its final `final_result` call) and its `hypothesis` record (written with `create_artifact_hypothesis` and `update-artifact`). Pick one:
+      - cause_explained: it names one cause and how that produced the symptom, backed by tool results or the verifier's review.
+      - unresolved_and_said_so: it says plainly that the cause was not established, and what is missing. Offering two or more possible causes it cannot tell apart counts here.
+      - symptom_as_cause: the "cause" only restates the symptom ("the job failed because the step exited 1") and it does not say the real cause is unknown.
+      - unsupported_cause: it states as fact a link that no tool result shows, or that a tool result contradicts, even if the rest is well supported.
+    scoring:
+      type: categorical
+      labels: [cause_explained, unresolved_and_said_so, symptom_as_cause, unsupported_cause]
+
+  - name: answers_the_question
+    prompt: |
+      Does the final answer (the agent's last reply, or the arguments of its final `final_result` call) answer what the latest user message asked? A specific question ("was it the 14:02 deploy?") needs a direct yes, no or not established, with the reason. A plain request to investigate needs the cause, or a plain statement that it is not established.
+      True when it is answered. False when it is ignored, deflected or only implied.
+    scoring:
+      type: boolean
+
+  - name: confidence_matches_check
+    prompt: |
+      Is the confidence label honest about verification? The agent sends its conclusion to a verifier (`invoke_incident_verifier`); the verdict comes back in the verifier's reply and in the record's `review`.
+      True when the final answer gives exactly one label (Confirmed, Likely, Possible or Speculative), the conclusion it reports went to the verifier after its last change, and the label is no higher than the verdict supports. With no verdict (the verifier failed), the label is Possible at most and the reply or the record's write-up says verification did not complete. A conclusion the verdict rejected is never reported as the cause.
+      False otherwise, including two labels at once ("Likely/Possible").
+    scoring:
+      type: boolean
+
+  - name: facts_match_evidence
+    prompt: |
+      Does any specific fact in the final answer or the record (a count, rate, time, version, ID, or resource or file name) contradict what a tool returned in this conversation? Values from the user's message count as given, and so does a value worked out from tool results (an elapsed time between two timestamps) when some reasonable reading of them gives it. A tool result cut short with "[+N chars truncated]" may hold values you cannot see; do not count those against the agent.
+      True when nothing contradicts the tool results. False when something does, or a value could not have come from any of them.
+    scoring:
+      type: boolean
+
+  - name: fixes_specific
+    prompt: |
+      Are the mitigations in the agent's `hypothesis` record specific enough to act on?
+      True when each says what to change on which service, resource or setting (with commands where the transcript gives enough to write them), is marked immediate or permanent, and follows from the cause. False when one is generic ("improve monitoring", "investigate further"), or there are none and the record does not say why.
+    scoring:
+      type: boolean
+
+  - name: fixes_safe
+    prompt: |
+      Are the mitigations in the agent's `hypothesis` record safe to act on?
+      True when every one is a proposal for a person, never described as done or as something the agent will do, and every risky or hard-to-undo action (a restart, delete, failover, scale-down, or schema or data change) states its risk and how to undo it. True when there are no mitigations.
+    scoring:
+      type: boolean

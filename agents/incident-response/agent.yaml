@@ -33,22 +33,22 @@ returns:
     description: >-
       The verified conclusion, in one or two plain sentences, no markdown.
       The write-up is in the record.
+    required: true
   confidence:
     type: string
     enum: [Confirmed, Likely, Possible, Speculative]
     description: >-
       The label the evidence supports after verification. The record's
       write-up justifies it rather than repeating it.
+    required: true
   hypothesis_artifact_id:
     type: string
     description: >-
       The conclusion record this investigation produced: the chain, the
       verifier's review, and the write-up.
-    optional: true
   needs_human_input:
     type: boolean
     description: True when a human must answer something before this conclusion stands.
-    optional: true
 instructions: |
   # Persona
 
@@ -233,3 +233,8 @@ subagents:
       chain step against its evidence, probes the declared gaps, runs its
       own falsification attempts, calibrates confidence and writes a
       verdict onto the record. Dispatch once per verification pass.
+# This agent's own evals, in evals/ beside this file. A judge model scores each
+# finished conversation against them; see the README for what each one checks.
+evals:
+  - ./evals:result
+  - ./evals:safety

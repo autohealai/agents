@@ -47,6 +47,45 @@ define, so it differs from the steps above:
   where the parent names them as `./agents:<child>`. Each is validated, and none
   is listed in the catalog on its own. Say in the README that the user must create
   them.
+- Evals go at `evals/<name>.yaml` inside the agent's folder, attached in
+  `agent.yaml` as `./evals:<name>` (see below). Say in the README that the user
+  must create them, and what each one checks.
+
+### Evals
+
+An `apiVersion` agent can ship evals that score its conversations. Each is a
+judge: a model reads the finished conversation (every tool call and result, and
+the final reply) and answers each rubric's question. See
+[`agents/incident-response/evals/`](agents/incident-response/evals/) for a
+complete set.
+
+```yaml
+evals:                       # in agent.yaml
+  - ./evals:result           # scores automatically
+  - {eval: ./evals:safety, auto: false}   # manual scoring only
+```
+
+CI checks that every attachment has its file, every file is attached, and every
+file follows the eval format. The library's own rules:
+
+- Only the agent's own evals (`./evals:<name>`), and only `type: judge`.
+- Leave `model` out, so the workspace's default judge model scores it.
+- Leave `applies_to` out. A judge reads the conversation, so check the agent's
+  record through the tool calls that write it.
+- The judge does not see the agent's instructions. Write each rubric so it stands
+  alone: what to read (the final reply, a record, a kind of tool call), what
+  passes, what fails.
+- Phrase a boolean rubric so `true` is the good answer. Use a categorical rubric
+  for outcomes that are not pass or fail.
+- Ask about what the conversation shows. A judge has no answer key, so it can
+  check that a conclusion is supported and honestly labelled, not that it is
+  right.
+- Judge what the user gets, not the agent's internal steps. If the agent has a
+  subagent that already checks something, don't check it again.
+- Keep it small: a few evals with short rubrics. Each eval is one judge call
+  that reads the whole conversation, so cost grows with the number of evals.
+- Before you open the PR, score a few real conversations and read the judge's
+  reasons. A rubric the judge reads differently from you needs clearer words.
 5. Keep it generic. No secrets, no API keys, and no tenant- or company-specific
    IDs (Slack channel IDs, account numbers, internal hostnames). Use a clearly
    named placeholder (e.g. `#YOUR_COST_CHANNEL`) and document it in the README.
