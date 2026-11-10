@@ -1,0 +1,35 @@
+# Incident Verifier: the adversarial pass. A private child of incident-response,
+# so nothing outside that agent can call it.
+#
+# It reads the record named on its prompt's first line
+# (`hypothesis_artifact_id: <id>`), tries to break it with probes of its own,
+# and writes its verdict onto the record as `review`. It never changes what the
+# parent wrote.
+apiVersion: agents.autoheal.ai/v1
+name: incident-verifier
+icon: scales
+
+description: >-
+  Adversarially reviews one incident conclusion: classifies every causal-chain
+  step against its evidence, probes the declared gaps, tries to falsify the
+  chain, calibrates confidence and writes a verdict onto the record.
+
+model:
+  name: claude-sonnet-5
+  max_tokens: 16384
+  thinking: medium
+timeout: "20m"
+
+instructions: ./instructions.md
+
+system_tools: operation_type == "read" || name in ["create_artifact", "update_artifact"]
+integration_tools: operation_type == "read"
+
+# The project's `hypothesis` template, the one the parent names. An agent can
+# name the project's templates or its own, never its parent's, so the template
+# lives at project level.
+artifacts:
+  - hypothesis
+
+# A verifier judges the evidence in front of it; past findings would bias it.
+memory: false

@@ -129,7 +129,7 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1,
-          "description": "The validated confidence. This supersedes the investigator's own."
+          "description": "The validated confidence. This supersedes the investigator's own. Below 0.4 when any falsification attempt came back falsified."
         },
         "is_primary": {
           "type": "boolean",
@@ -154,13 +154,15 @@
             "properties": {
               "step_id": { "type": "string", "pattern": "^s[0-9]{1,2}$" },
               "classification": { "type": "string", "enum": ["VERIFIED", "PARTIALLY_VERIFIED", "CONTRADICTED"] },
-              "limitation_gap": { "type": "string", "description": "A gap the reviewer found that the investigator had not declared." },
+              "limitation_gap": { "type": "string", "description": "A gap the reviewer found that the investigator had not declared. A step with one is not VERIFIED." },
               "verification_evidence_id": {
                 "type": "string",
                 "pattern": "^#ev-r[0-9]+$",
                 "description": "The reviewer's own probe that settles this step."
               }
-            }
+            },
+            "if": { "required": ["limitation_gap"], "properties": { "limitation_gap": { "minLength": 1 } } },
+            "then": { "properties": { "classification": { "enum": ["PARTIALLY_VERIFIED", "CONTRADICTED"] } } }
           }
         },
         "falsification_attempts": {
@@ -193,7 +195,14 @@
         },
         "uncovered_cause": { "type": "string", "description": "Something the whole set fails to explain." },
         "human_input_reasoning": { "type": "string" }
-      }
+      },
+      "if": {
+        "required": ["falsification_attempts"],
+        "properties": {
+          "falsification_attempts": { "contains": { "required": ["outcome"], "properties": { "outcome": { "const": "falsified" } } } }
+        }
+      },
+      "then": { "properties": { "confidence": { "exclusiveMaximum": 0.4 } } }
     },
 
     "mitigations": {

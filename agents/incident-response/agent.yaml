@@ -1,45 +1,48 @@
+# Incident Response: investigates a production incident and reports a root
+# cause it has tried to disprove.
+#
+# It does not investigate competing explanations in parallel. It weighs them,
+# commits to one, and records it in a `hypothesis` artifact with what it ruled
+# out. Its private child, agents/incident-verifier/, is the check on that
+# choice: it tries to break the record and writes its verdict onto it as
+# `review`. The record is all the two agents share.
 apiVersion: agents.autoheal.ai/v1
 name: incident-response
 icon: siren
 
 description: >-
-  Investigates a production incident end to end: gathers evidence from the
-  connected observability and deployment sources, tests competing explanations
-  through its own subagents, and proposes a bounded mitigation.
+  Investigates a production incident end to end: gathers evidence, commits to a
+  root-cause conclusion recorded as an artifact, has it adversarially verified,
+  reworks it if the verdict says so, and reports the cause with its evidence and
+  a proposed mitigation.
 
 model:
   name: claude-sonnet-5
   max_tokens: 8192
   thinking: high
+timeout: "45m"
 
 instructions: ./instructions.md
 
-tools:
-  - operation_type: read
+system_tools: operation_type == "read" || name in ["create_artifact", "update_artifact"]
+integration_tools: operation_type == "read"
 
-skills:
-  - ./skills:deploy-correlation
-  - ./skills:rollback-verification
-  - ./skills:retry-storm-diagnosis
 
+# The project's `hypothesis` template, at artifact-templates/hypothesis/ in the
+# project rather than in this agent's folder; the verifier names the same one.
+# It grants create_artifact_hypothesis, which needs `system_tools` to keep
+# create_artifact.
 artifacts:
   - hypothesis
 
-# Two private children. Competing explanations are investigated in parallel,
-# each in its own context, so one line of inquiry cannot quietly colour the
-# others; the verifier then argues against whichever survived.
 subagents:
-  investigate_hypothesis:
-    agent: ./agents:hypothesis-investigator
+  incident_verifier:
+    agent: ./agents:incident-verifier
     description: >-
-      Investigates ONE candidate explanation and reports whether the
-      evidence supports it. Call once per competing hypothesis, in
-      parallel.
-  adversarial_verifier:
-    agent: ./agents:adversarial-verifier
-    description: >-
-      Argues against the surviving explanation link by link and returns a
-      verdict. Call once, after the hypotheses come back.
+      Adversarially reviews the conclusion record: classifies every causal
+      chain step against its evidence, probes the declared gaps, runs its
+      own falsification attempts, calibrates confidence and writes a
+      verdict onto the record. Dispatch once per verification pass.
 
 evals:
   - ./evals:root-cause-correctness
@@ -47,24 +50,26 @@ evals:
   - ./evals:causal-chain-completeness
   - ./evals:hypothesis-verification
   - ./evals:mitigation-safety
-  - ./evals:severity-calibration
 
 returns:
   root_cause:
     type: string
-    description: The single most likely root cause, one or two sentences.
+    description: >-
+      The verified conclusion, in one or two plain sentences, no markdown.
+      The write-up is in the record.
     required: true
   confidence:
-    type: number
-    minimum: 0.0
-    maximum: 1.0
-    required: true
-  summary: {type: string, required: true}
-  severity:
     type: string
-    enum: [sev1, sev2, sev3, sev4]
+    enum: [Confirmed, Likely, Possible, Speculative]
+    description: >-
+      The label the evidence supports after verification. The record's
+      write-up justifies it rather than repeating it.
     required: true
-  causal_chain: string[]
-  rejected_hypotheses: string[]
-  proposed_mitigation: string
-  supporting_evidence: string[]
+  hypothesis_artifact_id:
+    type: string
+    description: >-
+      The conclusion record this investigation produced: the chain, the
+      verifier's review, and the write-up.
+  needs_human_input:
+    type: boolean
+    description: True when a human must answer something before this conclusion stands.
