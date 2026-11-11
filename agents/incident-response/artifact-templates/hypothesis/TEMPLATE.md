@@ -11,7 +11,7 @@ Four writers own four disjoint parts, and each leaves the others alone:
 
 - The planner creates it with slug, name, description, mechanism and status "proposed", plus its orientation (category, prior_confidence, supporting_signals, investigate_by).
 - The investigator fills in causal_chain, confidence, investigation_summary and sets status to "investigated" — or "withdrawn" if the evidence kills it. It never writes review or mitigations.
-- The reviewer writes review, and nothing else. A verdict that edits the claim it is judging is not a review.
+- The reviewer writes review, and nothing else. A verdict that edits the claim it is judging is not a review. A step review with a limitation_gap is never VERIFIED, and a falsification attempt that came back falsified puts confidence below 0.4; the schema refuses a review that breaks either.
 - The fix planner writes mitigations, and nothing else.
 
 Every evidence_id is copied verbatim from an <evidence id="#ev-..."/> tag that followed a tool result in your own run. An id you did not see is not evidence.
