@@ -38,6 +38,7 @@ Agents here come from both the Autoheal team and the Autoheal community — anyo
 | [`cost-anomaly-triage`](agents/cost-anomaly-triage/) | For each daily Vantage cost anomaly, finds the deploy, config change, scaling event or traffic change that caused it, names the owning team, and proposes a fix with its dollar impact, as a pull request when the resource is declared in code. |
 | [`pr-review-reminders`](agents/pr-review-reminders/) | Keeps one Slack thread per open pull request in your organisation with its review status and who it is waiting on. Reminds only that person, reviewer or author, during their working hours, and suggests a reviewer from CODEOWNERS and the catalog when nobody was requested. |
 | [`support-escalation-triage`](agents/support-escalation-triage/) | When support escalates a Pylon ticket to engineering, replays the customer's own session, errors and logs, and matches them to a known issue by stack trace and release. Drafts the reply for support, or files a reproducible Jira bug to the owning team when the failure is new. |
+| [`context-setup`](agents/context-setup/) | Interviews you to set up and improve a project's context for incident response: checks the integrations, imports services into the Context Graph, writes skills for the project's agents, and scores how ready the context is. Run it again to continue from the gaps. |
 
 ## How to use an agent
 

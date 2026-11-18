@@ -95,6 +95,22 @@
       "yaml": "apiVersion: agents.autoheal.ai/v1\nname: coding-agent-spend\nicon: code\n\ndescription: >-\n  Every night, prices the coding agents' token usage by type, compares your\n  repositories on cost per merged PR, and finds where each one's\n  tokens go. It opens the fix as a PR: an ignore rule for the owning team, or\n  a benchmarked settings change for platform engineering.\n\nmodel:\n  name: claude-sonnet-5\n  max_tokens: 8192\n  thinking: medium\n\ninstructions: ./instructions.md\n\ntools:\n  - operation_type: read\n  - {integration: github, operation_type: write}\n  - {integration: slack, operation_type: write}\n\nskills:\n  - ./skills:coding-spend-attribution\n\nevals:\n  - ./evals:coding-spend-soundness\n  - ./evals:benchmarked-before-proposed\n\nreturns:\n  window: {type: string, required: true}\n  focus_repo: {type: string, required: true}\n  spend: {type: string, required: true}\n  cost_per_merged_pr: string\n  summary: {type: string, required: true}\n  recommendation: {type: string, required: true}\n  action: string\n"
     },
     {
+      "name": "context-setup",
+      "display_name": "Context Setup",
+      "summary": "Interviews you to set up and improve a project's context for incident response, writes the skills and Context Graph entries its agents read, and scores how ready the context is.",
+      "description": "Interviews you to set up and improve a project's context for incident response: checks the integrations, imports services into the Context Graph, writes skills for the project's agents, and scores how ready the context is.",
+      "category": "sre",
+      "trigger": "manual",
+      "safety": "propose",
+      "requires": {
+        "integrations": []
+      },
+      "github_url": "https://github.com/autohealai/agents/blob/main/agents/context-setup/agent.yaml",
+      "raw_url": "https://raw.githubusercontent.com/autohealai/agents/main/agents/context-setup/agent.yaml",
+      "readme_url": "https://github.com/autohealai/agents/blob/main/agents/context-setup/README.md",
+      "yaml": "# Context Setup: interviews a person to set up and improve a project's context\n# (skills, Context Graph, integration context forms) so the project's agents\n# can handle incidents first, then code review and questions. Run it again and\n# again: each run reads the readiness report the last one left, scores the\n# project out of 100 and works down the pending list.\n#\n# skills/onboard-project and skills/integration-skill are the Autoheal\n# Assistant's onboarding skills, with the Assistant-only tools swapped for the\n# ones a project agent has. A project agent's run has no approval card, so it\n# saves a skill with git_save_file + git_commit after the person says\n# \"Commit it\" (see instructions.md, \"Saving a skill\").\napiVersion: agents.autoheal.ai/v1\nname: context-setup\nicon: compass\ndescription: >-\n  Interviews you to set up and improve a project's context for incident\n  response: checks the integrations, imports services into the Context Graph,\n  writes skills for the project's agents, and scores how ready the context is.\n\n# Uses the organization's default model. This agent needs a strong model with\n# high thinking; uncomment to pin one:\n# model:\n#   name: claude-opus-5-5\n#   thinking: high\ntimeout: \"60m\"\n\ninstructions: ./instructions.md\n\ninputs:\n  prompt:\n    description: >-\n      What to work on. Leave it general (\"set up context\", \"review my setup\",\n      \"what's my score\") or name a task (\"write the Datadog skill\", \"import the\n      services from PagerDuty\").\n"
+    },
+    {
       "name": "cost-anomaly-triage",
       "display_name": "Cost Anomaly Triage",
       "summary": "For each daily Vantage cost anomaly, finds the deploy, config change, scaling event or traffic change that caused it, names the owning team, and proposes a fix with its dollar impact, as a pull request when the resource is declared in code.",

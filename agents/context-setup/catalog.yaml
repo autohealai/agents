@@ -1,0 +1,8 @@
+# Catalog and gallery fields for this agent. They live here rather than in
+# agent.yaml because an apiVersion agents.autoheal.ai/v1 document accepts only
+# the platform's own keys. Not part of the agent: do not paste this file.
+display_name: Context Setup
+category: sre
+summary: Interviews you to set up and improve a project's context for incident response, writes the skills and Context Graph entries its agents read, and scores how ready the context is.
+trigger: manual
+safety: propose

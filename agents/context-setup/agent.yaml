@@ -1,0 +1,34 @@
+# Context Setup: interviews a person to set up and improve a project's context
+# (skills, Context Graph, integration context forms) so the project's agents
+# can handle incidents first, then code review and questions. Run it again and
+# again: each run reads the readiness report the last one left, scores the
+# project out of 100 and works down the pending list.
+#
+# skills/onboard-project and skills/integration-skill are the Autoheal
+# Assistant's onboarding skills, with the Assistant-only tools swapped for the
+# ones a project agent has. A project agent's run has no approval card, so it
+# saves a skill with git_save_file + git_commit after the person says
+# "Commit it" (see instructions.md, "Saving a skill").
+apiVersion: agents.autoheal.ai/v1
+name: context-setup
+icon: compass
+description: >-
+  Interviews you to set up and improve a project's context for incident
+  response: checks the integrations, imports services into the Context Graph,
+  writes skills for the project's agents, and scores how ready the context is.
+
+# Uses the organization's default model. This agent needs a strong model with
+# high thinking; uncomment to pin one:
+# model:
+#   name: claude-opus-5-5
+#   thinking: high
+timeout: "60m"
+
+instructions: ./instructions.md
+
+inputs:
+  prompt:
+    description: >-
+      What to work on. Leave it general ("set up context", "review my setup",
+      "what's my score") or name a task ("write the Datadog skill", "import the
+      services from PagerDuty").
